@@ -14,7 +14,7 @@ export default function Dashboard({ telemetry, scenario, tick, transitioning }) 
         className="flex h-full overflow-hidden"
       >
         <Sidebar telemetry={telemetry} scenario={scenario} />
-        <main className="flex-1 min-w-0 overflow-hidden bg-[#f0f4ee]">
+        <main className="flex-1 min-w-0 overflow-hidden bg-[#f0f4ee] p-3">
           <FieldMap telemetry={telemetry} tick={tick} scenario={scenario} />
         </main>
       </motion.div>

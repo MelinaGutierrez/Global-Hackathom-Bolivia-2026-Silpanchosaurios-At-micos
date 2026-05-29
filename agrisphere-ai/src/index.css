@@ -60,3 +60,28 @@ body {
   50% { opacity: 0.6; }
 }
 .ai-urgent { animation: ai-pulse 1.4s ease-in-out infinite; }
+
+/* Leaflet cell labels */
+.cell-label {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+.cell-label::before { display: none !important; }
+.cell-label .leaflet-tooltip-content { margin: 0; }
+
+.cell-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  padding: 3px 5px;
+  backdrop-filter: blur(2px);
+  pointer-events: none;
+  line-height: 1.2;
+}
+.cell-badge .pct  { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 700; }
+.cell-badge .lbl  { font-family: 'Outfit', sans-serif; font-size: 9px; font-weight: 600; margin-top: 1px; }
+.cell-badge .icon { font-size: 11px; }
