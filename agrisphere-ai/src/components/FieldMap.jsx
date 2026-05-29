@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Droplets, ZoomIn, ZoomOut } from 'lucide-react'
+import { TICKS_PER_PLOT } from '../data/mockEngine.js'
 
 /* ═══════════════════════════════════════════════════════════
    PARCELAS DE CULTIVO — Sembradíos de Cliza (polígonos reales)
@@ -181,13 +182,13 @@ export default function FieldMap({ telemetry, tick }) {
   const { moisture, rover } = telemetry
   const isOffline = rover.status === 'OFFLINE'
 
-  const fieldIdx   = tick % ROVER_SEQ.length
+  const fieldIdx   = Math.floor(tick / TICKS_PER_PLOT) % ROVER_SEQ.length
   const roverField = ALL_FIELDS[fieldIdx]
   const roverZone  = roverField?.zone || 'B'
   const roverPct   = moisture[roverZone]
 
   // Expose telemetry
-  telemetry.rover._cell = [fieldIdx % 8, Math.floor(fieldIdx / 8)]
+  telemetry.rover._cell = [fieldIdx % 5, Math.floor(fieldIdx / 5)]
   telemetry.rover._zone = roverZone
   telemetry.rover._utmX = Math.round(182000 + (roverField?.cx || 300) / 820 * 15000)
   telemetry.rover._utmY = Math.round(8049000 + (520 - (roverField?.cy || 250)) / 520 * 9500)

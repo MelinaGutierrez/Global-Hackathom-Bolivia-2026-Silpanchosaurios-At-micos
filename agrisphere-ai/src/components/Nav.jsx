@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Bell, Leaf, ChevronDown } from 'lucide-react'
+import { Bell, Droplets, ChevronDown } from 'lucide-react'
 import { SCENARIOS } from '../data/scenarios.js'
 
 const NAV_ITEMS = [
@@ -25,7 +25,7 @@ export default function Nav({ activePage, onPageChange, alerts = [], scenario, o
       <div className="flex items-center gap-2 flex-shrink-0">
         <div className="w-7 h-7 rounded-lg flex items-center justify-center"
           style={{ background: '#2563eb' }}>
-          <Leaf size={13} color="#fff" />
+          <Droplets size={13} color="#fff" />
         </div>
         <span style={{ fontFamily:'Outfit', fontWeight:700, fontSize:14, color:'#0f172a', letterSpacing:'-0.01em' }}>
           Hydro<span style={{ color:'#2563eb' }}>Sphere</span> <span style={{ color:'rgba(15,23,42,0.35)', fontWeight:400 }}>AI</span>
@@ -54,13 +54,10 @@ export default function Nav({ activePage, onPageChange, alerts = [], scenario, o
             onClick={() => onPageChange(item.id)}
             className="relative px-3.5 py-1.5 rounded-lg transition-all"
             style={{
-              fontFamily:'Outfit',
-              fontSize: 13,
+              fontFamily:'Outfit', fontSize:13,
               fontWeight: activePage === item.id ? 600 : 400,
               color: activePage === item.id ? '#0f172a' : 'rgba(15,23,42,0.45)',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
+              background: 'transparent', border: 'none', cursor: 'pointer',
             }}
           >
             {item.label}
@@ -100,8 +97,7 @@ export default function Nav({ activePage, onPageChange, alerts = [], scenario, o
               animate={{ opacity:1, y:0 }}
               className="absolute top-full right-0 mt-1 rounded-xl overflow-hidden z-50"
               style={{
-                width:210,
-                background:'#ffffff',
+                width:210, background:'#ffffff',
                 border:'1px solid rgba(15,23,42,0.10)',
                 boxShadow:'0 8px 24px rgba(0,0,0,0.08)',
               }}
@@ -112,7 +108,8 @@ export default function Nav({ activePage, onPageChange, alerts = [], scenario, o
                   onClick={() => { onScenarioChange(s.id); setScenarioOpen(false) }}
                   className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors"
                   style={{
-                    fontFamily:'Outfit', fontSize:12, fontWeight: scenario === s.id ? 600 : 400,
+                    fontFamily:'Outfit', fontSize:12,
+                    fontWeight: scenario === s.id ? 600 : 400,
                     color: scenario === s.id ? '#16a34a' : '#0f172a',
                     background: scenario === s.id ? 'rgba(22,163,74,0.06)' : 'transparent',
                   }}
@@ -131,24 +128,19 @@ export default function Nav({ activePage, onPageChange, alerts = [], scenario, o
         </div>
 
         {/* Alerts */}
-        <button
-          className="relative w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
-          style={{ color:'rgba(15,23,42,0.45)' }}
-        >
+        <button className="relative w-8 h-8 rounded-lg flex items-center justify-center"
+          style={{ color:'rgba(15,23,42,0.45)' }}>
           <Bell size={15} />
           {criticalCount > 0 && (
-            <span
-              className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center"
-              style={{ background:'#0f172a', color:'#fff', fontSize:9, fontWeight:700, fontFamily:'Outfit' }}
-            >
+            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center"
+              style={{ background:'#dc2626', color:'#fff', fontSize:9, fontWeight:700, fontFamily:'Outfit' }}>
               {criticalCount}
             </span>
           )}
         </button>
 
         {/* User */}
-        <div className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-lg cursor-pointer"
-          style={{ color:'#0f172a' }}>
+        <div className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-lg cursor-pointer">
           <div className="w-6 h-6 rounded-full flex items-center justify-center"
             style={{ background:'#0f172a' }}>
             <span style={{ fontSize:10, fontWeight:700, color:'#fff', fontFamily:'Outfit' }}>D</span>

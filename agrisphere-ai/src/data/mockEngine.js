@@ -3,6 +3,46 @@ import { SCENARIOS } from './scenarios.js'
 const jitter = (base, range) => parseFloat((base + (Math.random() - 0.5) * range).toFixed(2))
 const clamp = (v, min, max) => Math.min(max, Math.max(min, v))
 
+/* ── Rover plot sequence (matches ALL_FIELDS in FieldMap.jsx) ── */
+const PLOT_SEQ = [
+  { id:'A1', zone:'A' }, { id:'A2', zone:'A' }, { id:'A3', zone:'A' },
+  { id:'A4', zone:'A' }, { id:'A5', zone:'A' },
+  { id:'B1', zone:'B' }, { id:'B2', zone:'B' }, { id:'B3', zone:'B' },
+  { id:'B4', zone:'B' }, { id:'B5', zone:'B' },
+  { id:'C1', zone:'C' }, { id:'C2', zone:'C' }, { id:'C3', zone:'C' },
+  { id:'C4', zone:'C' },
+]
+export const TICKS_PER_PLOT = 8   // rover holds ~20 s per field (8 × 2.5 s tick)
+
+function getPlotDecision(plotId, zone, moisture) {
+  const pct = moisture[zone]
+  if (pct < 25) return {
+    decision: 'IRRIGATE_NOW', confidence: clamp(jitter(93, 3), 80, 99),
+    volume: Math.round(jitter(22, 4)),
+    message: `Plot ${plotId}: critically dry at ${pct.toFixed(1)}%. Immediate irrigation required — risk of crop loss.`,
+  }
+  if (pct < 40) return {
+    decision: 'IRRIGATE_NOW', confidence: clamp(jitter(87, 4), 75, 99),
+    volume: Math.round(jitter(14, 3)),
+    message: `Plot ${plotId}: dry at ${pct.toFixed(1)}%. Irrigation recommended within the next 2 hours.`,
+  }
+  if (pct < 70) return {
+    decision: 'STABLE', confidence: clamp(jitter(91, 3), 80, 99),
+    volume: null,
+    message: `Plot ${plotId}: optimal moisture at ${pct.toFixed(1)}%. No irrigation needed — soil in good condition.`,
+  }
+  if (pct < 85) return {
+    decision: 'STOP_IRRIGATION', confidence: clamp(jitter(88, 4), 75, 99),
+    volume: 0,
+    message: `Plot ${plotId}: wet at ${pct.toFixed(1)}%. Hold irrigation and monitor drainage.`,
+  }
+  return {
+    decision: 'STOP_IRRIGATION', confidence: clamp(jitter(95, 3), 85, 99),
+    volume: 0,
+    message: `Plot ${plotId}: saturated at ${pct.toFixed(1)}%. Stop irrigation immediately to prevent nutrient runoff.`,
+  }
+}
+
 export function generateTelemetry(scenario, tick) {
   const s = SCENARIOS[scenario]
   const t = tick / 10
@@ -32,11 +72,16 @@ export function generateTelemetry(scenario, tick) {
   const et0 = clamp(jitter(s.et0, 0.4), 0.5, 12)
   const rainfall = clamp(jitter(s.rainfall, 0.3), 0, 30)
 
-  // AI metrics
+  // AI decision — computed dynamically per rover's current plot
   const avgMoisture = (moisture.A + moisture.B + moisture.C) / 3
-  let aiDecision = s.aiDecision
-  let aiConfidence = clamp(jitter(s.aiConfidence, 3), 50, 99)
-  let aiVolume = s.aiVolume
+  const plotIdx  = Math.floor(tick / TICKS_PER_PLOT) % PLOT_SEQ.length
+  const curPlot  = PLOT_SEQ[plotIdx]
+  const plotAI   = scenario === 'ROVER_FAIL'
+    ? { decision: s.aiDecision, confidence: clamp(jitter(s.aiConfidence, 3), 50, 99), volume: s.aiVolume, message: s.aiMessage }
+    : getPlotDecision(curPlot.id, curPlot.zone, moisture)
+  let aiDecision   = plotAI.decision
+  let aiConfidence = Math.round(plotAI.confidence)
+  let aiVolume     = plotAI.volume
 
   // Water conservation
   const waterSaved = scenario === 'OVERWATER' ? jitter(2800, 200) : jitter(1240, 150)
@@ -77,17 +122,17 @@ export function generateTelemetry(scenario, tick) {
       routeProgress: Math.round(routeProgress),
       failures: scenario === 'ROVER_FAIL' ? Math.floor(tick / 20) + 2 : 0,
       mode: scenario === 'ROVER_FAIL' ? 'RECOVERY' : 'SCANNING',
-      _cell: [1, 0],
-      _zone: 'A',
+      _cell: [0, 0],
+      _zone: curPlot.zone,
       _utmX: 183500,
       _utmY: 8057700,
     },
     weather: { temp, humidity, wind, et0, rainfall },
     ai: {
       decision: aiDecision,
-      confidence: Math.round(aiConfidence),
+      confidence: aiConfidence,
       volume: aiVolume,
-      message: s.aiMessage,
+      message: plotAI.message,
       aquiferReduction: clamp(jitter(18, 4), 5, 35),
       riskLevel: getRiskLevel(aiDecision),
     },
