@@ -1,167 +1,191 @@
 import { motion } from 'framer-motion'
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts'
+import { AreaChart, Area, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { Waves, AlertTriangle, TrendingDown, BarChart3, Droplets } from 'lucide-react'
 
+const INK   = '#0f172a'
+const GREEN = '#16a34a'
+const ink   = (o) => `rgba(15,23,42,${o})`
+
 const WELLS = [
-  { id: 'P-01', name: 'Pozo Norte', depth: 18.4, level: 72, trend: 'stable', pumping: 2.1 },
-  { id: 'P-02', name: 'Pozo Central', depth: 24.1, level: 58, trend: 'declining', pumping: 3.4 },
-  { id: 'P-03', name: 'Pozo Sur', depth: 31.8, level: 34, trend: 'critical', pumping: 4.8 },
-  { id: 'P-04', name: 'Pozo Auxiliar', depth: 12.2, level: 88, trend: 'stable', pumping: 1.2 },
+  { id: 'W-01', name: 'North Well',     depth: 18.4, level: 72, trend: 'stable',    pumping: 2.1 },
+  { id: 'W-02', name: 'Central Well',   depth: 24.1, level: 58, trend: 'declining', pumping: 3.4 },
+  { id: 'W-03', name: 'South Well',     depth: 31.8, level: 34, trend: 'critical',  pumping: 4.8 },
+  { id: 'W-04', name: 'Auxiliary Well', depth: 12.2, level: 88, trend: 'stable',    pumping: 1.2 },
 ]
 
-export default function AquiferStatus({ telemetry }) {
-  const { water, charts } = telemetry
-  const stressColor = water.aquiferStress > 75 ? '#ef4444' : water.aquiferStress > 50 ? '#f59e0b' : '#22c55e'
+function trendColor(t) {
+  return { critical: '#dc2626', declining: '#d97706', stable: GREEN }[t] || INK
+}
 
-  // 30-day depth projection
+const SUSTAINABILITY = [
+  { label: 'Recharge',   score: 62, unit: 'mm/yr' },
+  { label: 'Extraction', score: null,unit: '%'     },   // filled from water.aquiferStress
+  { label: 'Quality',    score: 78, unit: 'index'  },
+  { label: 'Vegetal',    score: 54, unit: '%'       },
+  { label: 'Efficiency', score: null,unit: '%'     },   // filled from water.efficiency
+]
+
+function Card({ children, style = {} }) {
+  return <div style={{ background: '#fff', border: `1px solid ${ink(0.08)}`, borderRadius: 12, ...style }}>{children}</div>
+}
+
+function RingScore({ score, label, unit }) {
+  const c   = score > 65 ? GREEN : score > 40 ? '#d97706' : '#dc2626'
+  const r   = 17
+  const cir = 2 * Math.PI * r
+  return (
+    <div style={{ background: '#f8fafc', border: `1px solid ${ink(0.07)}`, borderRadius: 10, padding: '12px 8px', textAlign: 'center' }}>
+      <div style={{ fontFamily: 'Outfit', fontSize: 9, fontWeight: 600, color: ink(0.38), letterSpacing: '0.04em', marginBottom: 8 }}>
+        {label.toUpperCase()}
+      </div>
+      <div style={{ position: 'relative', width: 48, height: 48, margin: '0 auto 8px' }}>
+        <svg viewBox="0 0 44 44" style={{ transform: 'rotate(-90deg)', width: '100%', height: '100%' }}>
+          <circle cx="22" cy="22" r={r} fill="none" stroke={ink(0.07)} strokeWidth={4} />
+          <motion.circle cx="22" cy="22" r={r} fill="none" stroke={c} strokeWidth={4}
+            strokeDasharray={cir}
+            animate={{ strokeDashoffset: cir * (1 - score / 100) }}
+            initial={{ strokeDashoffset: cir }}
+            transition={{ duration: 1.2, ease: 'easeOut' }}
+            strokeLinecap="round"
+          />
+        </svg>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ fontFamily: 'Outfit', fontSize: 12, fontWeight: 700, color: c }}>{score}</span>
+        </div>
+      </div>
+      <div style={{ fontFamily: 'Outfit', fontSize: 9, color: ink(0.35) }}>{unit}</div>
+    </div>
+  )
+}
+
+export default function AquiferStatus({ telemetry }) {
+  const { water } = telemetry
+  const stress      = water.aquiferStress
+  const stressColor = stress > 75 ? '#dc2626' : stress > 50 ? '#d97706' : GREEN
+
   const projection = Array.from({ length: 30 }, (_, i) => ({
     day: `D+${i}`,
-    depth: parseFloat(water.aquiferDepth) + i * (water.aquiferStress > 60 ? 0.18 : 0.05) + (Math.random() - 0.5) * 0.5,
+    depth:    parseFloat(water.aquiferDepth) + i * (stress > 60 ? 0.18 : 0.05) + (Math.random() - 0.5) * 0.4,
     critical: 45,
   }))
 
+  const scores = [62, 100 - stress, 78, 54, water.efficiency]
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="h-full p-4 overflow-y-auto space-y-4"
+      initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}
+      style={{ height: '100%', padding: 14, overflowY: 'auto', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: 10 }}
     >
-      <div>
-        <h2 className="font-display font-bold text-xl text-neon-50">Estado del Acuífero</h2>
-        <p className="font-outfit text-sm text-sage-400">Monitoreo de agua subterránea — Valle Alto de Cochabamba</p>
-      </div>
-
-      {/* Hero stress gauge */}
-      <div className="grid grid-cols-4 gap-3">
-        <motion.div
-          className="glass rounded-2xl p-5 border col-span-1"
-          style={{ borderColor: stressColor + '50' }}
-          animate={{ boxShadow: [`0 0 20px ${stressColor}22`, `0 0 40px ${stressColor}15`, `0 0 20px ${stressColor}22`] }}
-          transition={{ duration: 2.5, repeat: Infinity }}
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <Waves size={14} style={{ color: stressColor }} />
-            <span className="font-mono text-[9px] text-sage-500">ESTRÉS ACUÍFERO</span>
+      {/* Top stats row */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 10 }}>
+        {/* Stress card */}
+        <Card style={{ padding: 15 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
+            <Waves size={12} style={{ color: stressColor }} />
+            <span style={{ fontFamily: 'Outfit', fontSize: 9, fontWeight: 600, color: ink(0.38), letterSpacing: '0.06em' }}>STRESS LEVEL</span>
           </div>
-          <div className="font-display font-bold text-4xl" style={{ color: stressColor }}>{water.aquiferStress}%</div>
-          <div className="mt-2 h-1.5 bg-void/60 rounded-full overflow-hidden">
-            <motion.div className="h-full rounded-full" style={{ background: stressColor }}
-              animate={{ width: `${water.aquiferStress}%` }} transition={{ duration: 1 }} />
+          <div style={{ fontFamily: 'Outfit', fontWeight: 700, fontSize: 30, color: stressColor, lineHeight: 1 }}>{stress}%</div>
+          <div style={{ marginTop: 8, height: 5, background: ink(0.06), borderRadius: 4, overflow: 'hidden' }}>
+            <motion.div style={{ height: '100%', borderRadius: 4, background: stressColor }}
+              animate={{ width: `${stress}%` }} transition={{ duration: 1 }} />
           </div>
-          {water.aquiferStress > 65 && (
-            <div className="mt-2 flex items-center gap-1">
+          {stress > 65 && (
+            <motion.div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 7 }}
+              animate={{ opacity: [1, 0.5, 1] }} transition={{ duration: 1.5, repeat: Infinity }}>
               <AlertTriangle size={9} style={{ color: stressColor }} />
-              <span className="font-mono text-[8px]" style={{ color: stressColor }}>PRESIÓN ALTA</span>
-            </div>
+              <span style={{ fontFamily: 'Outfit', fontSize: 9, fontWeight: 600, color: stressColor }}>HIGH PRESSURE</span>
+            </motion.div>
           )}
-        </motion.div>
+        </Card>
 
         {[
-          { icon: TrendingDown, label: 'Profundidad Actual', value: `${water.aquiferDepth}m`, sub: 'nivel freático', color: '#38bdf8' },
-          { icon: Droplets, label: 'Recarga Estimada', value: '4.2 mm/d', sub: 'precipitación efectiva', color: '#22c55e' },
-          { icon: BarChart3, label: 'Extracción Total', value: `${(water.consumption / 1000).toFixed(1)}k L/d`, sub: 'todos los pozos', color: '#f59e0b' },
+          { icon: TrendingDown, label: 'WATER TABLE', value: `${water.aquiferDepth} m`,                  sub: 'current depth',          color: '#2563eb' },
+          { icon: Droplets,     label: 'RECHARGE',    value: '4.2 mm/d',                                 sub: 'effective precipitation', color: GREEN     },
+          { icon: BarChart3,    label: 'EXTRACTION',  value: `${(water.consumption/1000).toFixed(1)}k L/d`, sub: 'all wells / day',      color: '#d97706' },
         ].map(s => (
-          <div key={s.label} className="glass rounded-2xl p-5 border border-neon-700/15">
-            <s.icon size={14} style={{ color: s.color }} className="mb-2" />
-            <div className="font-mono text-[9px] text-sage-500 mb-1">{s.label.toUpperCase()}</div>
-            <div className="font-display font-bold text-2xl" style={{ color: s.color }}>{s.value}</div>
-            <div className="font-mono text-[9px] text-sage-500 mt-1">{s.sub}</div>
-          </div>
+          <Card key={s.label} style={{ padding: 15 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
+              <s.icon size={12} style={{ color: s.color }} />
+              <span style={{ fontFamily: 'Outfit', fontSize: 9, fontWeight: 600, color: ink(0.38), letterSpacing: '0.06em' }}>{s.label}</span>
+            </div>
+            <div style={{ fontFamily: 'Outfit', fontWeight: 700, fontSize: 24, color: s.color, lineHeight: 1 }}>{s.value}</div>
+            <div style={{ fontFamily: 'Outfit', fontSize: 10, color: ink(0.38), marginTop: 5 }}>{s.sub}</div>
+          </Card>
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        {/* Depth trend */}
-        <div className="glass rounded-2xl p-4 border border-neon-700/15">
-          <h3 className="font-display font-semibold text-sm text-neon-100 mb-3">Proyección 30 días — Nivel Freático</h3>
-          <ResponsiveContainer width="100%" height={160}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        {/* Projection */}
+        <Card style={{ padding: 14 }}>
+          <div style={{ fontFamily: 'Outfit', fontWeight: 600, fontSize: 12, color: INK, marginBottom: 10 }}>
+            30-Day Depth Projection
+          </div>
+          <ResponsiveContainer width="100%" height={155}>
             <AreaChart data={projection}>
               <defs>
-                <linearGradient id="depthGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
+                <linearGradient id="dg" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor="#2563eb" stopOpacity={0.18} />
+                  <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <XAxis dataKey="day" tick={{ fontSize: 7, fill: '#4d7a5a', fontFamily: 'DM Mono' }} tickLine={false} axisLine={false} interval={5} />
-              <YAxis tick={{ fontSize: 7, fill: '#4d7a5a', fontFamily: 'DM Mono' }} tickLine={false} axisLine={false} />
-              <Tooltip contentStyle={{ background: 'rgba(6,18,9,0.95)', border: '1px solid rgba(14,165,233,0.3)', borderRadius: 8, fontSize: 11 }} />
-              <Area type="monotone" dataKey="depth" stroke="#0ea5e9" strokeWidth={2} fill="url(#depthGrad)" dot={false} name="Prof. (m)" />
-              <Line type="monotone" dataKey="critical" stroke="rgba(239,68,68,0.5)" strokeWidth={1} strokeDasharray="4,4" dot={false} name="Límite crítico" />
+              <XAxis dataKey="day" tick={{ fontSize: 9, fill: ink(0.3), fontFamily: 'Outfit' }} tickLine={false} axisLine={false} interval={5} />
+              <YAxis tick={{ fontSize: 9, fill: ink(0.3), fontFamily: 'Outfit' }} tickLine={false} axisLine={false} />
+              <Tooltip contentStyle={{ background: '#fff', border: `1px solid ${ink(0.1)}`, borderRadius: 8, fontSize: 11, fontFamily: 'Outfit' }} />
+              <Area type="monotone" dataKey="depth"    stroke="#2563eb" strokeWidth={2} fill="url(#dg)" dot={false} name="Depth (m)" />
+              <Line type="monotone" dataKey="critical" stroke="rgba(220,38,38,0.4)" strokeWidth={1.5} strokeDasharray="5,4" dot={false} name="Critical limit" />
             </AreaChart>
           </ResponsiveContainer>
-        </div>
+        </Card>
 
         {/* Wells */}
-        <div className="glass rounded-2xl p-4 border border-neon-700/15">
-          <h3 className="font-display font-semibold text-sm text-neon-100 mb-3">Estado de Pozos</h3>
-          <div className="space-y-3">
-            {WELLS.map(well => {
-              const color = well.trend === 'critical' ? '#ef4444' : well.trend === 'declining' ? '#f59e0b' : '#22c55e'
+        <Card style={{ padding: 14 }}>
+          <div style={{ fontFamily: 'Outfit', fontWeight: 600, fontSize: 12, color: INK, marginBottom: 10 }}>Well Status</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {WELLS.map(w => {
+              const c = trendColor(w.trend)
               return (
-                <div key={well.id} className="flex items-center gap-3 rounded-xl p-2.5 bg-void/40 border border-neon-700/10">
-                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }}>
-                    {well.trend === 'critical' && (
-                      <motion.div className="w-2 h-2 rounded-full" style={{ background: color }}
-                        animate={{ scale: [1, 2, 1], opacity: [1, 0, 1] }} transition={{ duration: 1, repeat: Infinity }} />
+                <div key={w.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '9px 11px', borderRadius: 8,
+                  background: '#f8fafc', border: `1px solid ${ink(0.07)}`,
+                }}>
+                  <div style={{ position: 'relative', width: 8, height: 8, flexShrink: 0 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: c }} />
+                    {w.trend === 'critical' && (
+                      <motion.div style={{ position: 'absolute', inset: -2, borderRadius: '50%', border: `1.5px solid ${c}`, opacity: 0.5 }}
+                        animate={{ scale: [1, 1.8, 1], opacity: [0.5, 0, 0.5] }} transition={{ duration: 1.4, repeat: Infinity }} />
                     )}
                   </div>
-                  <div className="flex-1">
-                    <div className="flex justify-between">
-                      <span className="font-mono text-[10px] font-bold text-neon-200">{well.name}</span>
-                      <span className="font-mono text-[9px]" style={{ color }}>{well.trend.toUpperCase()}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <span style={{ fontFamily: 'Outfit', fontSize: 12, fontWeight: 600, color: INK }}>{w.name}</span>
+                      <span style={{ fontFamily: 'Outfit', fontSize: 9, fontWeight: 600, color: c }}>{w.trend.toUpperCase()}</span>
                     </div>
-                    <div className="h-1 bg-void/60 rounded-full mt-1 overflow-hidden">
-                      <div className="h-full rounded-full" style={{ background: color, width: `${well.level}%`, opacity: 0.8 }} />
+                    <div style={{ height: 4, background: ink(0.07), borderRadius: 3, overflow: 'hidden' }}>
+                      <motion.div style={{ height: '100%', borderRadius: 3, background: c }}
+                        animate={{ width: `${w.level}%` }} transition={{ duration: 0.8 }} />
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-mono text-xs font-bold text-neon-200">{well.depth}m</div>
-                    <div className="font-mono text-[8px] text-sage-500">{well.pumping} m³/h</div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ fontFamily: 'Outfit', fontSize: 13, fontWeight: 700, color: INK }}>{w.depth}m</div>
+                    <div style={{ fontFamily: 'Outfit', fontSize: 9, color: ink(0.38) }}>{w.pumping} m³/h</div>
                   </div>
                 </div>
               )
             })}
           </div>
-        </div>
+        </Card>
       </div>
 
-      {/* Sustainability score */}
-      <div className="glass rounded-2xl p-4 border border-neon-700/15">
-        <h3 className="font-display font-semibold text-sm text-neon-100 mb-3">
-          Índice de Sostenibilidad Hídrica — Cliza, Valle Alto
-        </h3>
-        <div className="grid grid-cols-5 gap-3">
-          {[
-            { label: 'Tasa de Recarga', score: 62, unit: 'mm/año' },
-            { label: 'Tasa Extracción', score: 100 - water.aquiferStress, unit: '%' },
-            { label: 'Calidad Agua', score: 78, unit: 'índice' },
-            { label: 'Cobertura Vegetal', score: 54, unit: '%' },
-            { label: 'Eficiencia Uso', score: water.efficiency, unit: '%' },
-          ].map(m => {
-            const c = m.score > 65 ? '#22c55e' : m.score > 40 ? '#f59e0b' : '#ef4444'
-            return (
-              <div key={m.label} className="rounded-xl p-3 bg-void/40 border border-neon-700/10 text-center">
-                <div className="font-mono text-[9px] text-sage-500 mb-2">{m.label.toUpperCase()}</div>
-                <div className="relative w-12 h-12 mx-auto mb-2">
-                  <svg viewBox="0 0 44 44" className="rotate-[-90deg]">
-                    <circle cx="22" cy="22" r="18" fill="none" stroke="rgba(34,197,94,0.1)" strokeWidth="4" />
-                    <motion.circle cx="22" cy="22" r="18" fill="none" stroke={c} strokeWidth="4"
-                      strokeDasharray={`${2 * Math.PI * 18}`}
-                      animate={{ strokeDashoffset: 2 * Math.PI * 18 * (1 - m.score / 100) }}
-                      transition={{ duration: 1, ease: 'easeOut' }}
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="font-mono text-[10px] font-bold" style={{ color: c }}>{m.score}</span>
-                  </div>
-                </div>
-                <div className="font-mono text-[8px] text-sage-500">{m.unit}</div>
-              </div>
-            )
-          })}
+      {/* Sustainability scores */}
+      <Card style={{ padding: 14 }}>
+        <div style={{ fontFamily: 'Outfit', fontWeight: 600, fontSize: 12, color: INK, marginBottom: 12 }}>Sustainability Index</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
+          {SUSTAINABILITY.map((m, i) => (
+            <RingScore key={m.label} score={scores[i]} label={m.label} unit={m.unit} />
+          ))}
         </div>
-      </div>
+      </Card>
     </motion.div>
   )
 }

@@ -1,131 +1,181 @@
 import { motion } from 'framer-motion'
-import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts'
-import { Layers, Thermometer, Zap, FlaskConical } from 'lucide-react'
+import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer } from 'recharts'
+
+const INK   = '#0f172a'
+const GREEN = '#16a34a'
+const ink   = (o) => `rgba(15,23,42,${o})`
+
+const ZONE_META = {
+  A: { name: 'North Plot',   color: INK },
+  B: { name: 'Central Plot', color: GREEN },
+  C: { name: 'South Plot',   color: '#2563eb' },
+}
+
+function mColor(pct) {
+  if (pct < 25) return '#dc2626'
+  if (pct < 40) return '#d97706'
+  if (pct < 70) return GREEN
+  if (pct < 85) return '#2563eb'
+  return '#7c3aed'
+}
+function mLabel(pct) {
+  if (pct < 25) return 'Critical'
+  if (pct < 40) return 'Dry'
+  if (pct < 70) return 'Optimal'
+  if (pct < 85) return 'Wet'
+  return 'Saturated'
+}
 
 const SOIL_PROFILES = [
-  { depth: '0-15cm', label: 'Capa superficial', n: 42, p: 18, k: 85, ph: 6.8, ec: 0.4 },
-  { depth: '15-35cm', label: 'Zona radicular', n: 38, p: 22, k: 71, ph: 7.0, ec: 0.5 },
-  { depth: '35-60cm', label: 'Subsuelo superior', n: 21, p: 14, k: 55, ph: 7.2, ec: 0.6 },
-  { depth: '60-90cm', label: 'Subsuelo medio', n: 12, p: 9, k: 38, ph: 7.4, ec: 0.7 },
+  { depth: '0–15 cm',  label: 'Surface',       n: 42, p: 18, k: 85, ph: 6.8, ec: 0.4 },
+  { depth: '15–35 cm', label: 'Root Zone',      n: 38, p: 22, k: 71, ph: 7.0, ec: 0.5 },
+  { depth: '35–60 cm', label: 'Upper Subsoil',  n: 21, p: 14, k: 55, ph: 7.2, ec: 0.6 },
+  { depth: '60–90 cm', label: 'Deep Subsoil',   n: 12, p:  9, k: 38, ph: 7.4, ec: 0.7 },
 ]
+
+const NUTRIENTS = [
+  { key: 'n',  label: 'N',  color: GREEN,    unit: 'mg/kg' },
+  { key: 'p',  label: 'P',  color: '#2563eb',unit: 'mg/kg' },
+  { key: 'k',  label: 'K',  color: '#d97706',unit: 'mg/kg' },
+  { key: 'ph', label: 'pH', color: '#7c3aed',unit: '' },
+  { key: 'ec', label: 'EC', color: '#db2777',unit: 'dS/m' },
+]
+
+function Card({ children, style = {} }) {
+  return <div style={{ background: '#fff', border: `1px solid ${ink(0.08)}`, borderRadius: 12, ...style }}>{children}</div>
+}
 
 export default function SoilIntelligence({ telemetry }) {
   const { moisture } = telemetry
 
   const radarData = [
-    { metric: 'Humedad', A: moisture.A, B: moisture.B, C: moisture.C },
-    { metric: 'Nitrógeno', A: 42, B: 55, C: 38 },
-    { metric: 'Fósforo', A: 18, B: 22, C: 31 },
-    { metric: 'Potasio', A: 85, B: 71, C: 62 },
-    { metric: 'pH norm.', A: 68, B: 70, C: 72 },
-    { metric: 'CE', A: 40, B: 50, C: 35 },
+    { metric: 'Moisture',   A: moisture.A, B: moisture.B, C: moisture.C },
+    { metric: 'Nitrogen',   A: 42, B: 55, C: 38 },
+    { metric: 'Phosphorus', A: 18, B: 22, C: 31 },
+    { metric: 'Potassium',  A: 85, B: 71, C: 62 },
+    { metric: 'pH',         A: 68, B: 70, C: 72 },
+    { metric: 'EC',         A: 40, B: 50, C: 35 },
   ]
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="h-full p-4 overflow-y-auto space-y-4"
+      initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}
+      style={{ height: '100%', padding: 14, overflowY: 'auto', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: 10 }}
     >
-      <div>
-        <h2 className="font-display font-bold text-xl text-neon-50">Inteligencia del Suelo</h2>
-        <p className="font-outfit text-sm text-sage-400">Análisis composicional y de humedad radicular</p>
-      </div>
-
-      <div className="grid grid-cols-3 gap-3">
-        {/* Radar */}
-        <div className="glass rounded-2xl p-4 border border-neon-700/15 col-span-1">
-          <h3 className="font-display font-semibold text-sm text-neon-100 mb-3">Perfil Multi-zona</h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <RadarChart data={radarData}>
-              <PolarGrid stroke="rgba(34,197,94,0.1)" />
-              <PolarAngleAxis dataKey="metric" tick={{ fontSize: 9, fill: '#4d7a5a', fontFamily: 'DM Mono' }} />
-              <Radar name="Zona A" dataKey="A" stroke="#ef4444" fill="#ef4444" fillOpacity={0.1} />
-              <Radar name="Zona B" dataKey="B" stroke="#22c55e" fill="#22c55e" fillOpacity={0.1} />
-              <Radar name="Zona C" dataKey="C" stroke="#38bdf8" fill="#38bdf8" fillOpacity={0.1} />
-            </RadarChart>
-          </ResponsiveContainer>
-          <div className="flex justify-center gap-4 mt-2">
-            {[{ label: 'Zona A', color: '#ef4444' }, { label: 'Zona B', color: '#22c55e' }, { label: 'Zona C', color: '#38bdf8' }].map(z => (
-              <div key={z.label} className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full" style={{ background: z.color }} />
-                <span className="font-mono text-[9px] text-sage-400">{z.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Soil profile layers */}
-        <div className="glass rounded-2xl p-4 border border-neon-700/15 col-span-2">
-          <h3 className="font-display font-semibold text-sm text-neon-100 mb-3">Perfil de Suelo por Profundidad</h3>
-          <div className="space-y-2">
-            {SOIL_PROFILES.map((layer, i) => (
-              <motion.div
-                key={layer.depth}
-                className="rounded-xl p-3 border border-neon-700/10"
-                style={{ background: `rgba(34,197,94,${0.04 - i * 0.008})` }}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.1 }}
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-16 flex-shrink-0">
-                    <div className="font-mono text-[10px] text-neon-400 font-bold">{layer.depth}</div>
-                    <div className="font-mono text-[8px] text-sage-500">{layer.label}</div>
-                  </div>
-                  {[
-                    { label: 'N', value: layer.n, unit: 'mg/kg', color: '#22c55e' },
-                    { label: 'P', value: layer.p, unit: 'mg/kg', color: '#38bdf8' },
-                    { label: 'K', value: layer.k, unit: 'mg/kg', color: '#f59e0b' },
-                    { label: 'pH', value: layer.ph, unit: '', color: '#a78bfa' },
-                    { label: 'CE', value: layer.ec, unit: 'dS/m', color: '#fb923c' },
-                  ].map(n => (
-                    <div key={n.label} className="flex-1 text-center">
-                      <div className="font-mono text-[8px] text-sage-500">{n.label}</div>
-                      <div className="font-mono text-xs font-bold" style={{ color: n.color }}>{n.value}{n.unit}</div>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Moisture over depth */}
-      <div className="grid grid-cols-3 gap-3">
+      {/* Zone moisture cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
         {['A', 'B', 'C'].map(zone => {
-          const pct = moisture[zone]
-          const color = pct < 25 ? '#ef4444' : pct < 40 ? '#f59e0b' : pct < 70 ? '#22c55e' : '#38bdf8'
+          const pct   = moisture[zone]
+          const mc    = mColor(pct)
+          const meta  = ZONE_META[zone]
           const depths = [
-            { d: '0-15', v: Math.min(100, pct * 1.3) },
-            { d: '15-35', v: pct },
-            { d: '35-60', v: pct * 0.85 },
-            { d: '60-90', v: pct * 0.6 },
+            { d: '0–15 cm',  v: Math.min(100, pct * 1.3) },
+            { d: '15–35 cm', v: pct },
+            { d: '35–60 cm', v: pct * 0.85 },
+            { d: '60–90 cm', v: pct * 0.6 },
           ]
           return (
-            <div key={zone} className="glass rounded-2xl p-4 border border-neon-700/15">
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="font-display font-semibold text-sm text-neon-100">Zona {zone}</h3>
-                <span className="font-mono text-lg font-bold" style={{ color }}>{pct.toFixed(1)}%</span>
+            <Card key={zone} style={{ padding: 14 }}>
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: meta.color, flexShrink: 0 }} />
+                    <span style={{ fontFamily: 'Outfit', fontWeight: 700, fontSize: 13, color: INK }}>Zone {zone}</span>
+                  </div>
+                  <div style={{ fontFamily: 'Outfit', fontSize: 10, color: ink(0.4), marginTop: 1, marginLeft: 14 }}>{meta.name}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontFamily: 'Outfit', fontWeight: 700, fontSize: 20, color: mc, lineHeight: 1 }}>{pct.toFixed(1)}%</div>
+                  <div style={{
+                    fontFamily: 'Outfit', fontSize: 9, fontWeight: 600, color: mc,
+                    padding: '2px 7px', borderRadius: 10, marginTop: 3,
+                    background: mc + '18',
+                  }}>{mLabel(pct)}</div>
+                </div>
               </div>
-              <div className="space-y-2">
+              {/* Depth bars */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {depths.map(d => (
                   <div key={d.d}>
-                    <div className="flex justify-between mb-0.5">
-                      <span className="font-mono text-[9px] text-sage-500">{d.d}cm</span>
-                      <span className="font-mono text-[10px]" style={{ color }}>{d.v.toFixed(0)}%</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                      <span style={{ fontFamily: 'Outfit', fontSize: 9, color: ink(0.38) }}>{d.d}</span>
+                      <span style={{ fontFamily: 'Outfit', fontSize: 9, fontWeight: 600, color: mc }}>{d.v.toFixed(0)}%</span>
                     </div>
-                    <div className="h-1.5 bg-void/60 rounded-full overflow-hidden">
-                      <motion.div className="h-full rounded-full" style={{ background: color, width: `${d.v}%` }}
+                    <div style={{ height: 4, background: ink(0.06), borderRadius: 3, overflow: 'hidden' }}>
+                      <motion.div style={{ height: '100%', borderRadius: 3, background: mc }}
                         animate={{ width: `${d.v}%` }} transition={{ duration: 0.8 }} />
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
+            </Card>
           )
         })}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 10 }}>
+        {/* Radar — no separate legend, zones already labeled on axes */}
+        <Card style={{ padding: 14 }}>
+          <div style={{ fontFamily: 'Outfit', fontWeight: 600, fontSize: 12, color: INK, marginBottom: 4 }}>Multi-Zone Profile</div>
+          <ResponsiveContainer width="100%" height={210}>
+            <RadarChart data={radarData} outerRadius={75}>
+              <PolarGrid stroke={ink(0.07)} />
+              <PolarAngleAxis dataKey="metric" tick={{ fontSize: 9, fill: ink(0.4), fontFamily: 'Outfit' }} />
+              <Radar name="Zone A" dataKey="A" stroke={INK}      fill={INK}       fillOpacity={0.07} strokeWidth={1.5} />
+              <Radar name="Zone B" dataKey="B" stroke={GREEN}    fill={GREEN}     fillOpacity={0.10} strokeWidth={1.5} />
+              <Radar name="Zone C" dataKey="C" stroke="#2563eb"  fill="#2563eb"   fillOpacity={0.07} strokeWidth={1.5} />
+            </RadarChart>
+          </ResponsiveContainer>
+          {/* Inline legend — compact, below chart */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 4 }}>
+            {Object.entries(ZONE_META).map(([z, m]) => (
+              <div key={z} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: m.color }} />
+                <span style={{ fontFamily: 'Outfit', fontSize: 9, color: ink(0.45) }}>Zone {z}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* Soil profile table */}
+        <Card style={{ padding: 14 }}>
+          <div style={{ fontFamily: 'Outfit', fontWeight: 600, fontSize: 12, color: INK, marginBottom: 10 }}>Profile by Depth</div>
+          {/* Column headers */}
+          <div style={{ display: 'flex', gap: 8, paddingBottom: 7, borderBottom: `1px solid ${ink(0.06)}`, marginBottom: 7 }}>
+            <div style={{ width: 95, flexShrink: 0 }} />
+            {NUTRIENTS.map(n => (
+              <div key={n.key} style={{ flex: 1, textAlign: 'center', fontFamily: 'Outfit', fontSize: 10, fontWeight: 700, color: n.color }}>
+                {n.label}
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {SOIL_PROFILES.map((layer, i) => (
+              <motion.div key={layer.depth}
+                initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.07 }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  background: ink(0.02), border: `1px solid ${ink(0.05)}`,
+                  borderRadius: 8, padding: '9px 11px',
+                }}
+              >
+                <div style={{ width: 95, flexShrink: 0 }}>
+                  <div style={{ fontFamily: 'Outfit', fontSize: 11, fontWeight: 700, color: INK }}>{layer.depth}</div>
+                  <div style={{ fontFamily: 'Outfit', fontSize: 9, color: ink(0.38) }}>{layer.label}</div>
+                </div>
+                {NUTRIENTS.map(n => (
+                  <div key={n.key} style={{ flex: 1, textAlign: 'center' }}>
+                    <span style={{ fontFamily: 'Outfit', fontSize: 12, fontWeight: 700, color: n.color }}>
+                      {layer[n.key]}
+                    </span>
+                    {n.unit && <span style={{ fontFamily: 'Outfit', fontSize: 8, color: ink(0.3), marginLeft: 1 }}>{n.unit}</span>}
+                  </div>
+                ))}
+              </motion.div>
+            ))}
+          </div>
+        </Card>
       </div>
     </motion.div>
   )

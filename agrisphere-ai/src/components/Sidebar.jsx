@@ -333,27 +333,6 @@ export default function Sidebar({ telemetry, scenario }) {
     <aside className="flex-shrink-0 flex flex-col overflow-hidden"
       style={{ width:296, background:'#fff', borderRight:`1px solid ${ink(0.08)}` }}>
 
-      {/* Header */}
-      <div className="flex-shrink-0 px-4 py-3"
-        style={{ borderBottom:`1px solid ${ink(0.07)}` }}>
-        <div className="flex items-center gap-2 mb-0.5">
-          <Droplets size={12} style={{ color:'#2563eb' }} />
-          <span style={{ fontFamily:'Outfit', fontSize:13, fontWeight:700, color:INK }}>
-            Hydro<span style={{ color:'#2563eb' }}>Sphere</span>
-          </span>
-          <span style={{ fontFamily:'Outfit', fontSize:9, fontWeight:500, color:ink(0.38) }}>
-            · Cliza Field
-          </span>
-          <span className="ml-auto" style={{
-            fontFamily:'Outfit', fontSize:9, fontWeight:600, color:GREEN, letterSpacing:'0.05em',
-            background:gn(0.08), border:`1px solid ${gn(0.18)}`, padding:'2px 7px', borderRadius:999
-          }}>17 WELLS</span>
-        </div>
-        <div style={{ fontFamily:'Outfit', fontSize:10, color:ink(0.38) }}>
-          Cliza Municipality · Valle Alto, Cochabamba
-        </div>
-      </div>
-
       {/* Scroll area */}
       <div className="flex-1 overflow-y-auto px-3.5 py-3 space-y-3">
 

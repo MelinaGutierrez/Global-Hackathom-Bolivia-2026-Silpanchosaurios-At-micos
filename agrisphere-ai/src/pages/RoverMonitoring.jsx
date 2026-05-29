@@ -1,135 +1,205 @@
 import { motion } from 'framer-motion'
-import { Battery, Wifi, Navigation, AlertTriangle, Route, Cpu, Activity, Radio } from 'lucide-react'
+import { Battery, Wifi, Route, AlertTriangle, Radio, Activity } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+
+const INK   = '#0f172a'
+const GREEN = '#16a34a'
+const ink   = (o) => `rgba(15,23,42,${o})`
+
+function Card({ children, style = {} }) {
+  return (
+    <div style={{ background: '#fff', border: `1px solid ${ink(0.08)}`, borderRadius: 12, ...style }}>
+      {children}
+    </div>
+  )
+}
+
+function StatCard({ icon: Icon, label, value, sub, color, pulse }) {
+  return (
+    <Card style={{ padding: '14px 16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <span style={{ fontFamily: 'Outfit', fontSize: 10, fontWeight: 600, color: ink(0.38), letterSpacing: '0.06em' }}>
+          {label}
+        </span>
+        {pulse && (
+          <motion.div style={{ width: 6, height: 6, borderRadius: '50%', background: color }}
+            animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.2, repeat: Infinity }} />
+        )}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+        <Icon size={13} style={{ color, flexShrink: 0, marginBottom: 2 }} />
+        <span style={{ fontFamily: 'Outfit', fontWeight: 700, fontSize: 24, color, lineHeight: 1 }}>{value}</span>
+      </div>
+      {sub && <div style={{ fontFamily: 'Outfit', fontSize: 11, color: ink(0.4), marginTop: 5 }}>{sub}</div>}
+    </Card>
+  )
+}
+
+const DIAGNOSTICS = [
+  { label: 'Left Motor',   key: 'motor_l' },
+  { label: 'Right Motor',  key: 'motor_r' },
+  { label: 'LiDAR',        key: 'lidar'   },
+  { label: 'GPS',          key: 'gps'     },
+  { label: 'Soil Probe',   key: 'probe'   },
+  { label: '4G Radio',     key: 'radio'   },
+  { label: 'Camera',       key: 'camera'  },
+  { label: 'IMU',          key: 'imu'     },
+  { label: 'Temp Sensor',  key: 'temp'    },
+  { label: 'Battery BMS',  key: 'bms'     },
+]
 
 export default function RoverMonitoring({ telemetry }) {
   const { rover } = telemetry
-  const isOnline = rover.status === 'ONLINE'
+  const online    = rover.status === 'ONLINE'
+  const battColor = rover.battery < 20 ? '#dc2626' : rover.battery < 50 ? '#d97706' : GREEN
+  const sigColor  = rover.signal  < 40 ? '#dc2626' : rover.signal  < 70 ? '#d97706' : GREEN
 
-  // Generate signal history
+  const diagOk = {
+    motor_l: online, motor_r: online, lidar: online,
+    gps:     online || rover.signal > 20,
+    probe:   rover.failures === 0,
+    radio:   rover.signal > 30,
+    camera:  online, imu: online, temp: true,
+    bms:     rover.battery > 5,
+  }
+
   const signalHistory = Array.from({ length: 20 }, (_, i) => ({
     t: `${i * 3}s`,
-    signal: Math.max(0, rover.signal + (Math.random() - 0.5) * 20),
-    battery: Math.max(0, rover.battery - i * 0.1),
+    signal: Math.max(0, Math.min(100, rover.signal + (Math.random() - 0.5) * 18)),
   }))
-
-  const battColor = rover.battery < 20 ? '#ef4444' : rover.battery < 50 ? '#f59e0b' : '#22c55e'
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="h-full p-4 overflow-y-auto space-y-4"
+      initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}
+      style={{ height: '100%', padding: 14, overflowY: 'auto', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: 10 }}
     >
-      <div>
-        <h2 className="font-display font-bold text-xl text-neon-50">Monitoreo del Rover</h2>
-        <p className="font-outfit text-sm text-sage-400">Telemetría en tiempo real — Unidad AGRS-01</p>
-      </div>
-
-      {/* Status hero */}
-      <div className="grid grid-cols-4 gap-3">
-        <motion.div
-          className="glass rounded-2xl p-5 border col-span-1"
-          style={{ borderColor: isOnline ? 'rgba(34,197,94,0.4)' : 'rgba(239,68,68,0.4)' }}
-          animate={{ boxShadow: isOnline ? ['0 0 20px rgba(34,197,94,0.2)', '0 0 40px rgba(34,197,94,0.15)', '0 0 20px rgba(34,197,94,0.2)'] : ['0 0 20px rgba(239,68,68,0.2)', '0 0 40px rgba(239,68,68,0.15)', '0 0 20px rgba(239,68,68,0.2)'] }}
-          transition={{ duration: 2, repeat: Infinity }}
-        >
-          <div className="flex items-center gap-2 mb-3">
-            <Radio size={14} style={{ color: isOnline ? '#22c55e' : '#ef4444' }} />
-            <span className="font-mono text-xs text-sage-400">ESTADO</span>
-          </div>
-          <div className="font-display font-bold text-2xl" style={{ color: isOnline ? '#22c55e' : '#ef4444' }}>
+      {/* Compact status bar */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '8px 14px', borderRadius: 10,
+        background: '#fff', border: `1px solid ${ink(0.08)}`,
+      }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          padding: '3px 10px', borderRadius: 20,
+          background: online ? 'rgba(22,163,74,0.08)' : 'rgba(220,38,38,0.08)',
+          border: `1px solid ${online ? 'rgba(22,163,74,0.2)' : 'rgba(220,38,38,0.2)'}`,
+        }}>
+          <motion.div style={{ width: 5, height: 5, borderRadius: '50%', background: online ? GREEN : '#dc2626' }}
+            animate={{ opacity: online ? [1, 0.3, 1] : 1 }} transition={{ duration: 1.2, repeat: Infinity }} />
+          <span style={{ fontFamily: 'Outfit', fontSize: 10, fontWeight: 700, color: online ? GREEN : '#dc2626', letterSpacing: '0.05em' }}>
             {rover.status}
-          </div>
-          <div className="font-mono text-xs text-sage-500 mt-1">{rover.mode}</div>
-        </motion.div>
-
-        {[
-          { icon: Battery, label: 'Batería', value: `${rover.battery}%`, color: battColor, sub: rover.battery < 20 ? 'CARGA URGENTE' : 'Normal' },
-          { icon: Wifi, label: 'Señal', value: `${rover.signal}%`, color: rover.signal < 40 ? '#ef4444' : '#22c55e', sub: `${rover.syncLatency}ms latencia` },
-          { icon: Route, label: 'Ruta Completa', value: `${rover.routeProgress}%`, color: '#38bdf8', sub: `${rover.failures} fallo(s)` },
-        ].map((stat) => (
-          <div key={stat.label} className="glass rounded-2xl p-5 border border-neon-700/15">
-            <div className="flex items-center gap-2 mb-3">
-              <stat.icon size={14} className="text-sage-400" />
-              <span className="font-mono text-xs text-sage-400">{stat.label.toUpperCase()}</span>
-            </div>
-            <div className="font-display font-bold text-2xl" style={{ color: stat.color }}>{stat.value}</div>
-            <div className="font-mono text-[10px] text-sage-500 mt-1">{stat.sub}</div>
-          </div>
-        ))}
+          </span>
+        </div>
+        <span style={{ fontFamily: 'Outfit', fontSize: 12, fontWeight: 700, color: INK }}>HYDRO ROVER HR-01</span>
+        <span style={{ fontFamily: 'Outfit', fontSize: 11, color: ink(0.35) }}>·</span>
+        <span style={{ fontFamily: 'Outfit', fontSize: 11, color: ink(0.45) }}>{rover.mode}</span>
+        <span style={{ fontFamily: 'Outfit', fontSize: 11, color: ink(0.35), marginLeft: 'auto' }}>
+          Route&nbsp;
+          <span style={{ fontWeight: 600, color: INK }}>{rover.routeProgress}%</span>
+          &nbsp;complete
+        </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      {/* Stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+        <StatCard icon={Battery} label="BATTERY" value={`${rover.battery}%`}
+          sub={rover.battery < 20 ? '⚠ Charge urgently' : rover.battery < 50 ? 'Low — monitor' : 'Good'}
+          color={battColor} />
+        <StatCard icon={Wifi} label="SIGNAL STRENGTH" value={`${rover.signal}%`}
+          sub={`${rover.syncLatency} ms sync latency`} color={sigColor} pulse={online} />
+        <StatCard icon={Route} label="FAILURES" value={rover.failures}
+          sub={rover.failures === 0 ? 'All systems nominal' : 'Recovery mode active'}
+          color={rover.failures > 0 ? '#dc2626' : GREEN} />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         {/* Signal chart */}
-        <div className="glass rounded-2xl p-4 border border-neon-700/15">
-          <h3 className="font-display font-semibold text-sm text-neon-100 mb-3">Histórico de Señal</h3>
-          <ResponsiveContainer width="100%" height={140}>
+        <Card style={{ padding: 14 }}>
+          <div style={{ fontFamily: 'Outfit', fontWeight: 600, fontSize: 12, color: INK, marginBottom: 10 }}>Signal History</div>
+          <ResponsiveContainer width="100%" height={130}>
             <LineChart data={signalHistory}>
-              <XAxis dataKey="t" tick={{ fontSize: 7, fill: '#4d7a5a', fontFamily: 'DM Mono' }} tickLine={false} axisLine={false} />
-              <YAxis domain={[0, 100]} tick={{ fontSize: 7, fill: '#4d7a5a', fontFamily: 'DM Mono' }} tickLine={false} axisLine={false} />
-              <Tooltip contentStyle={{ background: 'rgba(6,18,9,0.95)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 8, fontSize: 11 }} />
-              <Line type="monotone" dataKey="signal" stroke="#22c55e" strokeWidth={2} dot={false} />
+              <XAxis dataKey="t" tick={{ fontSize: 9, fill: ink(0.3), fontFamily: 'Outfit' }} tickLine={false} axisLine={false} />
+              <YAxis domain={[0, 100]} tick={{ fontSize: 9, fill: ink(0.3), fontFamily: 'Outfit' }} tickLine={false} axisLine={false} />
+              <Tooltip contentStyle={{ background: '#fff', border: `1px solid ${ink(0.1)}`, borderRadius: 8, fontSize: 11, fontFamily: 'Outfit' }} />
+              <Line type="monotone" dataKey="signal" stroke={GREEN} strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
-        </div>
+        </Card>
 
         {/* Position */}
-        <div className="glass rounded-2xl p-4 border border-neon-700/15">
-          <h3 className="font-display font-semibold text-sm text-neon-100 mb-3">Posición GPS</h3>
-          <div className="grid grid-cols-2 gap-3">
+        <Card style={{ padding: 14 }}>
+          <div style={{ fontFamily: 'Outfit', fontWeight: 600, fontSize: 12, color: INK, marginBottom: 10 }}>Position & Motion</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
             {[
-              { label: 'Latitud', value: `${rover.lat?.toFixed(6)}°` },
-              { label: 'Longitud', value: `${rover.lng?.toFixed(6)}°` },
-              { label: 'Velocidad', value: `${rover.speed?.toFixed(2)} m/s` },
-              { label: 'Fallos', value: rover.failures, danger: rover.failures > 0 },
+              { label: 'Latitude',  value: `${rover.lat?.toFixed(5)}°` },
+              { label: 'Longitude', value: `${rover.lng?.toFixed(5)}°` },
+              { label: 'Speed',     value: `${rover.speed?.toFixed(1)} m/s` },
+              { label: 'Zone',      value: rover._zone || '—', highlight: true },
             ].map(f => (
-              <div key={f.label} className="rounded-xl p-3 bg-void/40 border border-neon-700/10">
-                <div className="font-mono text-[9px] text-sage-500 mb-1">{f.label.toUpperCase()}</div>
-                <div className={`font-mono text-sm font-bold ${f.danger ? 'text-critical' : 'text-neon-200'}`}>{f.value}</div>
+              <div key={f.label} style={{ background: '#f8fafc', border: `1px solid ${ink(0.06)}`, borderRadius: 8, padding: '9px 11px' }}>
+                <div style={{ fontFamily: 'Outfit', fontSize: 9, fontWeight: 600, color: ink(0.35), letterSpacing: '0.05em', marginBottom: 3 }}>
+                  {f.label.toUpperCase()}
+                </div>
+                <div style={{ fontFamily: 'Outfit', fontSize: 13, fontWeight: 700, color: f.highlight ? GREEN : INK }}>{f.value}</div>
               </div>
             ))}
           </div>
-
           {rover.failures > 0 && (
-            <motion.div
-              className="mt-3 flex items-center gap-2 rounded-lg p-2 bg-critical/8 border border-critical/30"
-              animate={{ opacity: [1, 0.7, 1] }}
-              transition={{ duration: 1, repeat: Infinity }}
-            >
-              <AlertTriangle size={11} className="text-critical" />
-              <span className="font-mono text-[9px] text-critical">Rover en modo de recuperación</span>
+            <motion.div animate={{ opacity: [1, 0.6, 1] }} transition={{ duration: 1.2, repeat: Infinity }}
+              style={{
+                marginTop: 8, display: 'flex', alignItems: 'center', gap: 6,
+                padding: '7px 10px', borderRadius: 8,
+                background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.2)',
+              }}>
+              <AlertTriangle size={11} color="#dc2626" />
+              <span style={{ fontFamily: 'Outfit', fontSize: 11, color: '#dc2626', fontWeight: 500 }}>Recovery mode active</span>
             </motion.div>
           )}
-        </div>
+        </Card>
       </div>
 
-      {/* Diagnostics */}
-      <div className="glass rounded-2xl p-4 border border-neon-700/15">
-        <h3 className="font-display font-semibold text-sm text-neon-100 mb-3">Diagnóstico del Sistema</h3>
-        <div className="grid grid-cols-5 gap-2">
-          {[
-            { label: 'Motor izq.', ok: isOnline },
-            { label: 'Motor der.', ok: isOnline },
-            { label: 'LiDAR', ok: isOnline },
-            { label: 'GPS', ok: isOnline || rover.signal > 20 },
-            { label: 'Soil probe', ok: rover.failures === 0 },
-            { label: 'Radio 4G', ok: rover.signal > 30 },
-            { label: 'Cámara', ok: isOnline },
-            { label: 'IMU', ok: isOnline },
-            { label: 'Temp sensor', ok: true },
-            { label: 'Batería BMS', ok: rover.battery > 5 },
-          ].map((d) => (
-            <div key={d.label} className="rounded-lg p-2.5 bg-void/40 border border-neon-700/10">
-              <div className={`w-2 h-2 rounded-full mb-1.5 ${d.ok ? 'bg-neon-400' : 'bg-critical'}`}>
-                {d.ok && <motion.div className="w-2 h-2 rounded-full bg-neon-400" animate={{ scale: [1, 1.5, 1], opacity: [1, 0, 1] }} transition={{ duration: 2, repeat: Infinity }} />}
-              </div>
-              <div className="font-mono text-[9px] text-sage-400">{d.label}</div>
-              <div className={`font-mono text-[9px] font-bold ${d.ok ? 'text-neon-400' : 'text-critical'}`}>{d.ok ? 'OK' : 'FAIL'}</div>
-            </div>
-          ))}
+      {/* Battery bar */}
+      <Card style={{ padding: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <span style={{ fontFamily: 'Outfit', fontSize: 11, fontWeight: 600, color: ink(0.5) }}>Battery</span>
+          <span style={{ fontFamily: 'Outfit', fontSize: 13, fontWeight: 700, color: battColor }}>{rover.battery}%</span>
         </div>
-      </div>
+        <div style={{ height: 7, background: ink(0.06), borderRadius: 5, overflow: 'hidden' }}>
+          <motion.div style={{ height: '100%', borderRadius: 5, background: battColor }}
+            animate={{ width: `${rover.battery}%` }} transition={{ duration: 0.8 }} />
+        </div>
+      </Card>
+
+      {/* Diagnostics */}
+      <Card style={{ padding: 14 }}>
+        <div style={{ fontFamily: 'Outfit', fontWeight: 600, fontSize: 12, color: INK, marginBottom: 10 }}>System Diagnostics</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 7 }}>
+          {DIAGNOSTICS.map(d => {
+            const ok = diagOk[d.key]
+            return (
+              <div key={d.key} style={{
+                background: ok ? 'rgba(22,163,74,0.04)' : 'rgba(220,38,38,0.04)',
+                border: `1px solid ${ok ? 'rgba(22,163,74,0.15)' : 'rgba(220,38,38,0.15)'}`,
+                borderRadius: 8, padding: '9px 6px', textAlign: 'center',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 5 }}>
+                  {ok ? (
+                    <motion.div style={{ width: 7, height: 7, borderRadius: '50%', background: GREEN }}
+                      animate={{ scale: [1, 1.5, 1], opacity: [1, 0.4, 1] }} transition={{ duration: 2.5, repeat: Infinity }} />
+                  ) : (
+                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#dc2626' }} />
+                  )}
+                </div>
+                <div style={{ fontFamily: 'Outfit', fontSize: 9, color: ink(0.45), marginBottom: 2 }}>{d.label}</div>
+                <div style={{ fontFamily: 'Outfit', fontSize: 10, fontWeight: 700, color: ok ? GREEN : '#dc2626' }}>
+                  {ok ? 'OK' : 'FAIL'}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </Card>
     </motion.div>
   )
 }
