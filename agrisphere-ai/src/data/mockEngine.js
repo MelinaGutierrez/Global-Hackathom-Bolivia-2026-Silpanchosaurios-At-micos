@@ -77,6 +77,10 @@ export function generateTelemetry(scenario, tick) {
       routeProgress: Math.round(routeProgress),
       failures: scenario === 'ROVER_FAIL' ? Math.floor(tick / 20) + 2 : 0,
       mode: scenario === 'ROVER_FAIL' ? 'RECOVERY' : 'SCANNING',
+      _cell: [1, 0],
+      _zone: 'A',
+      _utmX: 183500,
+      _utmY: 8057700,
     },
     weather: { temp, humidity, wind, et0, rainfall },
     ai: {

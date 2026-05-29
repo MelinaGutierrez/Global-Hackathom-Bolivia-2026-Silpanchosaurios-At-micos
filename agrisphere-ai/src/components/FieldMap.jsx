@@ -1,333 +1,317 @@
 import { useEffect, useRef, useState } from 'react'
+import { MapContainer, TileLayer, Rectangle, Tooltip, Marker, useMap } from 'react-leaflet'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ZoomIn, ZoomOut, Maximize2, Navigation } from 'lucide-react'
-import { interpolateRoverPosition } from '../data/mockEngine.js'
-import { ROVER_PATH, SENSOR_NODES } from '../data/scenarios.js'
+import { Droplets, X } from 'lucide-react'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 
-const getMoistureColor = (pct) => {
-  if (pct < 25) return { fill: 'rgba(239,68,68,0.22)', stroke: 'rgba(239,68,68,0.7)', label: 'CRÍTICO' }
-  if (pct < 40) return { fill: 'rgba(245,158,11,0.18)', stroke: 'rgba(245,158,11,0.6)', label: 'SECO' }
-  if (pct < 70) return { fill: 'rgba(34,197,94,0.15)', stroke: 'rgba(34,197,94,0.5)', label: 'ÓPTIMO' }
-  if (pct < 85) return { fill: 'rgba(56,189,248,0.15)', stroke: 'rgba(56,189,248,0.5)', label: 'HÚMEDO' }
-  return { fill: 'rgba(99,102,241,0.22)', stroke: 'rgba(99,102,241,0.7)', label: 'SATURADO' }
+/* ── Geographic bounds of Cliza municipality ─────────────*/
+const GEO = {
+  center:   [-17.590, -65.935],
+  latMin:   -17.670,
+  latMax:   -17.510,
+  lonMin:   -66.015,
+  lonMax:   -65.855,
 }
 
-export default function FieldMap({ telemetry, tick, scenario }) {
-  const [roverPos, setRoverPos] = useState({ x: 130, y: 140 })
-  const [trail, setTrail] = useState([])
-  const [scanY, setScanY] = useState(-50)
-  const [hoveredZone, setHoveredZone] = useState(null)
-  const [zoom, setZoom] = useState(1)
-  const animRef = useRef()
+/* ── Grid config ──────────────────────────────────────────*/
+const COLS = 10
+const ROWS = 7
 
-  const { moisture, rover } = telemetry
+// Agricultural cells [col, row]
+const ZONE_A_CELLS = [[1,0],[2,0],[3,0],[4,0],[5,0],[1,1],[2,1],[3,1],[4,1],[5,1],[6,1],[1,2],[2,2],[3,2]]
+const ZONE_B_CELLS = [[4,2],[5,2],[6,2],[7,2],[3,3],[4,3],[5,3],[6,3],[7,3],[8,3],[3,4],[4,4],[5,4],[6,4],[7,4],[8,4]]
+const ZONE_C_CELLS = [[1,5],[2,5],[3,5],[4,5],[5,5],[6,5],[7,5],[2,6],[3,6],[4,6],[5,6],[6,6],[7,6]]
 
-  // Animate rover
+const ZONE_LOOKUP = {}
+ZONE_A_CELLS.forEach(([c,r]) => { ZONE_LOOKUP[`${c},${r}`] = 'A' })
+ZONE_B_CELLS.forEach(([c,r]) => { ZONE_LOOKUP[`${c},${r}`] = 'B' })
+ZONE_C_CELLS.forEach(([c,r]) => { ZONE_LOOKUP[`${c},${r}`] = 'C' })
+
+const ROVER_SEQUENCE = [...ZONE_A_CELLS, ...ZONE_B_CELLS, ...ZONE_C_CELLS]
+
+/* ── Geo helpers ──────────────────────────────────────────*/
+function cellBounds(col, row) {
+  const latStep = (GEO.latMax - GEO.latMin) / ROWS
+  const lonStep = (GEO.lonMax - GEO.lonMin) / COLS
+  const latTop    = GEO.latMax - row * latStep
+  const latBottom = GEO.latMax - (row + 1) * latStep
+  const lonLeft   = GEO.lonMin + col * lonStep
+  const lonRight  = GEO.lonMin + (col + 1) * lonStep
+  return [[latBottom, lonLeft], [latTop, lonRight]]
+}
+
+function cellCenter(col, row) {
+  const latStep = (GEO.latMax - GEO.latMin) / ROWS
+  const lonStep = (GEO.lonMax - GEO.lonMin) / COLS
+  return [
+    GEO.latMax - (row + 0.5) * latStep,
+    GEO.lonMin + (col + 0.5) * lonStep,
+  ]
+}
+
+/* ── Color helpers ────────────────────────────────────────*/
+function moistureColor(pct) {
+  if (pct < 25) return { fill: '#b45309', text: '#ef4444', label: 'Crítico',  border: '#ef4444' }
+  if (pct < 40) return { fill: '#ca8a04', text: '#f59e0b', label: 'Seco',     border: '#f59e0b' }
+  if (pct < 70) return { fill: '#16a34a', text: '#16a34a', label: 'Óptimo',   border: '#22c55e' }
+  if (pct < 85) return { fill: '#1d4ed8', text: '#3b82f6', label: 'Húmedo',   border: '#60a5fa' }
+  return              { fill: '#7c3aed', text: '#7c3aed', label: 'Saturado', border: '#a78bfa' }
+}
+
+/* ── Rover DivIcon ────────────────────────────────────────*/
+function makeRoverIcon(isOffline) {
+  const html = isOffline
+    ? `<div style="
+        width:32px;height:32px;border-radius:6px;
+        background:rgba(239,68,68,0.15);border:2px dashed #ef4444;
+        display:flex;align-items:center;justify-content:center;
+        font-size:10px;font-family:DM Mono,monospace;color:#ef4444;font-weight:700;
+      ">✕</div>`
+    : `<div style="position:relative;width:44px;">
+        <div style="
+          position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+          width:36px;height:36px;border-radius:50%;
+          border:1.5px solid rgba(34,197,94,0.4);
+          animation:ping 2s ease-out infinite;
+        "></div>
+        <div style="
+          position:relative;z-index:2;
+          width:28px;height:22px;border-radius:6px;background:#15803d;margin:8px auto 0;
+          display:flex;align-items:center;justify-content:center;
+          box-shadow:0 2px 8px rgba(21,128,61,0.5);
+        ">
+          <div style="width:16px;height:12px;border-radius:3px;background:#16a34a;display:flex;align-items:center;justify-content:center;">
+            <div style="width:8px;height:6px;border-radius:1px;background:#4ade80;opacity:0.8;"></div>
+          </div>
+        </div>
+        <div style="font-size:7px;font-family:DM Mono,monospace;font-weight:700;color:#111827;
+          text-align:center;margin-top:2px;background:white;border-radius:3px;padding:1px 3px;
+          box-shadow:0 1px 3px rgba(0,0,0,0.15);">ROVER-01</div>
+      </div>`
+  return L.divIcon({ html, iconSize: [44, 52], iconAnchor: [22, 44], className: '' })
+}
+
+/* ── Component that flies map to rover position ──────────*/
+function RoverFly({ pos }) {
+  const map = useMap()
+  const prevPos = useRef(null)
   useEffect(() => {
-    let t = 0
-    const animate = () => {
-      t += 0.4
-      const pos = interpolateRoverPosition(t, ROVER_PATH)
-      setRoverPos(pos)
-      setTrail(prev => {
-        const next = [...prev, pos].slice(-18)
-        return next
-      })
-      setScanY(v => {
-        const next = v + 1.5
-        return next > 460 ? -50 : next
-      })
-      animRef.current = requestAnimationFrame(animate)
+    if (!prevPos.current || (prevPos.current[0] !== pos[0] || prevPos.current[1] !== pos[1])) {
+      prevPos.current = pos
     }
-    animRef.current = requestAnimationFrame(animate)
-    return () => cancelAnimationFrame(animRef.current)
-  }, [scenario])
+  }, [pos, map])
+  return null
+}
 
-  const zA = getMoistureColor(moisture.A)
-  const zB = getMoistureColor(moisture.B)
-  const zC = getMoistureColor(moisture.C)
-
-  const isOffline = rover.status === 'OFFLINE'
-
+/* ── Cell info popup (React overlay, not Leaflet popup) ──*/
+function CellPanel({ col, row, zone, moisture, onClose }) {
+  const pct = moisture[zone]
+  const cfg = moistureColor(pct)
+  const names = { A: 'Parcela Norte', B: 'Parcela Central', C: 'Parcela Sur' }
+  const [lat, lon] = cellCenter(col, row)
   return (
-    <div className="relative flex-1 glass rounded-2xl overflow-hidden border border-neon-700/15 min-h-0">
-      {/* Header */}
-      <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 pt-3 pb-2">
+    <motion.div
+      initial={{ opacity: 0, y: -6, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -4, scale: 0.98 }}
+      className="absolute top-14 left-1/2 -translate-x-1/2 z-[1000] bg-white rounded-2xl shadow-float border border-gray-200 overflow-hidden pointer-events-auto"
+      style={{ width: 260 }}
+    >
+      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between"
+        style={{ background: cfg.text + '12' }}>
         <div>
-          <h3 className="font-display font-semibold text-sm text-neon-100">Campo Inteligente — Cliza, VACbba</h3>
-          <p className="font-mono text-xs text-sage-500 mt-0.5">
-            {`${telemetry.rover.lat?.toFixed(4)}°S  ${Math.abs(telemetry.rover.lng)?.toFixed(4)}°O`}
-            <span className="ml-2 text-neon-600">· TELEMETRÍA EN VIVO</span>
+          <div className="font-display font-bold text-sm" style={{ color: cfg.text }}>
+            Zona {zone} · [{col},{row}]
+          </div>
+          <div className="text-xs font-outfit text-gray-400">{names[zone]}</div>
+        </div>
+        <button onClick={onClose}
+          className="w-6 h-6 rounded-full bg-white flex items-center justify-center hover:bg-gray-100">
+          <X size={11} className="text-gray-500" />
+        </button>
+      </div>
+      <div className="px-4 py-3 space-y-2.5">
+        <div>
+          <div className="flex justify-between items-baseline mb-1.5">
+            <span className="text-xs font-outfit text-gray-500">Humedad del suelo</span>
+            <span className="font-mono text-xl font-bold" style={{ color: cfg.text }}>{pct.toFixed(1)}%</span>
+          </div>
+          <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+            <motion.div className="h-full rounded-full" style={{ background: cfg.text }}
+              animate={{ width: `${pct}%` }} transition={{ duration: 0.6 }} />
+          </div>
+          <div className="mt-1 text-right text-[10px] font-outfit font-semibold" style={{ color: cfg.text }}>
+            {cfg.label}
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-1.5">
+          {[
+            { label: 'Sonda neutrónica', value: `${pct.toFixed(1)}%` },
+            { label: 'Temp. suelo',      value: `${(18 + pct * 0.15).toFixed(1)}°C` },
+            { label: 'Latitud',          value: `${lat.toFixed(5)}°` },
+            { label: 'Longitud',         value: `${lon.toFixed(5)}°` },
+          ].map(r => (
+            <div key={r.label} className="rounded-lg bg-gray-50 px-2 py-1.5">
+              <div className="text-[9px] font-outfit text-gray-400">{r.label}</div>
+              <div className="font-mono text-[11px] font-bold text-gray-700 mt-0.5">{r.value}</div>
+            </div>
+          ))}
+        </div>
+        <div className="rounded-xl p-2 border flex items-center gap-2"
+          style={{ borderColor: cfg.text + '40', background: cfg.text + '08' }}>
+          <Droplets size={11} style={{ color: cfg.text }} className="flex-shrink-0" />
+          <p className="text-[10px] font-outfit leading-relaxed" style={{ color: cfg.text }}>
+            {pct < 30 ? 'Irrigación requerida — humedad bajo umbral.' :
+             pct < 70 ? 'Condición óptima — no se requiere acción.' :
+             'Riesgo de saturación — suspender irrigación.'}
           </p>
         </div>
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => setZoom(z => Math.min(z + 0.2, 2))}
-            className="w-7 h-7 rounded-lg glass flex items-center justify-center text-sage-400 hover:text-neon-300 transition-colors"
-          >
-            <ZoomIn size={13} />
-          </button>
-          <button
-            onClick={() => setZoom(z => Math.max(z - 0.2, 0.6))}
-            className="w-7 h-7 rounded-lg glass flex items-center justify-center text-sage-400 hover:text-neon-300 transition-colors"
-          >
-            <ZoomOut size={13} />
-          </button>
-          <button className="w-7 h-7 rounded-lg glass flex items-center justify-center text-sage-400 hover:text-neon-300 transition-colors">
-            <Maximize2 size={13} />
-          </button>
-        </div>
       </div>
+    </motion.div>
+  )
+}
 
-      {/* SVG Map */}
-      <svg
-        viewBox="0 0 600 450"
-        className="w-full h-full"
-        style={{ transform: `scale(${zoom})`, transformOrigin: 'center', transition: 'transform 0.3s ease' }}
+/* ── Main ─────────────────────────────────────────────────*/
+export default function FieldMap({ telemetry, tick }) {
+  const { moisture, rover } = telemetry
+  const isOffline = rover.status === 'OFFLINE'
+
+  const cellIdx     = tick % ROVER_SEQUENCE.length
+  const [col, row]  = ROVER_SEQUENCE[cellIdx]
+  const roverZone   = ZONE_LOOKUP[`${col},${row}`] || 'B'
+  const roverLatLng = cellCenter(col, row)
+
+  // Expose to telemetry — also set on first render
+  telemetry.rover._cell  = [col, row]
+  telemetry.rover._zone  = roverZone
+  telemetry.rover._utmX  = Math.round(182000 + (col / COLS) * 15000)
+  telemetry.rover._utmY  = Math.round(8049000 + ((ROWS - row) / ROWS) * 9500)
+
+  const [visited, setVisited] = useState(new Set([`${col},${row}`]))
+  useEffect(() => {
+    setVisited(prev => new Set([...prev, `${col},${row}`]))
+  }, [col, row])
+
+  const [popup, setPopup] = useState(null)
+  const roverIcon = makeRoverIcon(isOffline)
+
+  const allAgriCells = [...ZONE_A_CELLS, ...ZONE_B_CELLS, ...ZONE_C_CELLS]
+
+  return (
+    <div className="relative flex-1 min-h-0 h-full overflow-hidden rounded-2xl border border-gray-200"
+      style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.10)' }}>
+
+      {/* Cell popup (above map) */}
+      <AnimatePresence>
+        {popup && (
+          <CellPanel {...popup} moisture={moisture} onClose={() => setPopup(null)} />
+        )}
+      </AnimatePresence>
+
+      <MapContainer
+        center={GEO.center}
+        zoom={13}
+        style={{ width: '100%', height: '100%' }}
+        zoomControl={false}
+        scrollWheelZoom={true}
+        attributionControl={true}
       >
-        <defs>
-          {/* Grid pattern */}
-          <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
-            <path d="M 30 0 L 0 0 0 30" fill="none" stroke="rgba(34,197,94,0.06)" strokeWidth="0.5" />
-          </pattern>
-          {/* Glow filter */}
-          <filter id="glow-green">
-            <feGaussianBlur stdDeviation="3" result="coloredBlur" />
-            <feMerge><feMergeNode in="coloredBlur" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
-          <filter id="glow-critical">
-            <feGaussianBlur stdDeviation="4" result="coloredBlur" />
-            <feMerge><feMergeNode in="coloredBlur" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
-          <filter id="glow-soft">
-            <feGaussianBlur stdDeviation="2" result="coloredBlur" />
-            <feMerge><feMergeNode in="coloredBlur" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
-          {/* Rover trail gradient */}
-          <linearGradient id="trailGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="rgba(34,197,94,0)" />
-            <stop offset="100%" stopColor="rgba(34,197,94,0.8)" />
-          </linearGradient>
-          {/* Moisture gradients */}
-          <radialGradient id="gradA" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor={zA.fill.replace('0.22', '0.4').replace('0.18', '0.35').replace('0.15', '0.3')} />
-            <stop offset="100%" stopColor={zA.fill} />
-          </radialGradient>
-          <radialGradient id="gradB" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor={zB.fill.replace('0.22', '0.4').replace('0.18', '0.35').replace('0.15', '0.3')} />
-            <stop offset="100%" stopColor={zB.fill} />
-          </radialGradient>
-          <radialGradient id="gradC" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor={zC.fill.replace('0.22', '0.4').replace('0.18', '0.35').replace('0.15', '0.3')} />
-            <stop offset="100%" stopColor={zC.fill} />
-          </radialGradient>
-          <clipPath id="mapClip">
-            <rect x="50" y="40" width="500" height="380" rx="8" />
-          </clipPath>
-        </defs>
+        {/* Satellite imagery base */}
+        <TileLayer
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+          attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
+          maxZoom={19}
+        />
+        {/* Labels overlay on satellite */}
+        <TileLayer
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+          opacity={0.7}
+          maxZoom={19}
+        />
 
-        {/* Background */}
-        <rect width="600" height="450" fill="rgba(3,13,6,0.95)" />
-        <rect x="50" y="40" width="500" height="380" rx="8" fill="rgba(6,18,9,0.9)" />
-        <rect x="50" y="40" width="500" height="380" rx="8" fill="url(#grid)" />
+        {/* Agricultural grid cells */}
+        {allAgriCells.map(([c, r]) => {
+          const key      = `${c},${r}`
+          const zone     = ZONE_LOOKUP[key]
+          const pct      = moisture[zone]
+          const cfg      = moistureColor(pct)
+          const isRover  = c === col && r === row && !isOffline
+          const wasSeen  = visited.has(key)
+          const bounds   = cellBounds(c, r)
+          const opacity  = isRover ? 0.75 : wasSeen ? 0.55 : 0.40
 
-        {/* Terrain texture */}
-        <ellipse cx="300" cy="230" rx="220" ry="160" fill="rgba(34,197,94,0.03)" />
-
-        {/* ZONE A — Top Left (Parcela Norte) */}
-        <g clipPath="url(#mapClip)" onMouseEnter={() => setHoveredZone('A')} onMouseLeave={() => setHoveredZone(null)} style={{ cursor: 'pointer' }}>
-          <rect x="65" y="55" width="220" height="160" rx="6" fill={`url(#gradA)`} />
-          <rect x="65" y="55" width="220" height="160" rx="6" fill="none" stroke={zA.stroke} strokeWidth="1.5" />
-          {/* Field furrows */}
-          {[0,1,2,3,4,5,6].map(i => (
-            <line key={i} x1="65" y1={75 + i * 22} x2="285" y2={75 + i * 22}
-              stroke={zA.stroke} strokeWidth="0.3" strokeDasharray="8,12" opacity="0.4" />
-          ))}
-          {/* Zone Label */}
-          <text x="80" y="76" fontFamily="DM Mono" fontSize="10" fill={zA.stroke} opacity="0.9">ZONA A</text>
-          <text x="80" y="90" fontFamily="Outfit" fontSize="8.5" fill="rgba(240,253,244,0.5)">Parcela Norte</text>
-          <text x="220" y="76" fontFamily="DM Mono" fontSize="13" fontWeight="bold" fill={zA.stroke} textAnchor="middle">{moisture.A.toFixed(1)}%</text>
-          <text x="220" y="90" fontFamily="DM Mono" fontSize="7.5" fill={zA.stroke} opacity="0.8" textAnchor="middle">HUMEDAD</text>
-          {/* Status badge */}
-          <rect x="198" y="96" width="44" height="14" rx="7" fill={zA.stroke} opacity="0.2" />
-          <text x="220" y="107" fontFamily="DM Mono" fontSize="7" fill={zA.stroke} textAnchor="middle" fontWeight="bold">{zA.label}</text>
-
-          {hoveredZone === 'A' && (
-            <rect x="65" y="55" width="220" height="160" rx="6" fill="rgba(255,255,255,0.04)" />
-          )}
-        </g>
-
-        {/* ZONE B — Right (Parcela Central) */}
-        <g clipPath="url(#mapClip)" onMouseEnter={() => setHoveredZone('B')} onMouseLeave={() => setHoveredZone(null)} style={{ cursor: 'pointer' }}>
-          <rect x="305" y="55" width="230" height="250" rx="6" fill={`url(#gradB)`} />
-          <rect x="305" y="55" width="230" height="250" rx="6" fill="none" stroke={zB.stroke} strokeWidth="1.5" />
-          {[0,1,2,3,4,5,6,7,8].map(i => (
-            <line key={i} x1="305" y1={75 + i * 26} x2="535" y2={75 + i * 26}
-              stroke={zB.stroke} strokeWidth="0.3" strokeDasharray="8,12" opacity="0.4" />
-          ))}
-          <text x="320" y="76" fontFamily="DM Mono" fontSize="10" fill={zB.stroke} opacity="0.9">ZONA B</text>
-          <text x="320" y="90" fontFamily="Outfit" fontSize="8.5" fill="rgba(240,253,244,0.5)">Parcela Central</text>
-          <text x="420" y="76" fontFamily="DM Mono" fontSize="13" fontWeight="bold" fill={zB.stroke} textAnchor="middle">{moisture.B.toFixed(1)}%</text>
-          <text x="420" y="90" fontFamily="DM Mono" fontSize="7.5" fill={zB.stroke} opacity="0.8" textAnchor="middle">HUMEDAD</text>
-          <rect x="398" y="96" width="44" height="14" rx="7" fill={zB.stroke} opacity="0.2" />
-          <text x="420" y="107" fontFamily="DM Mono" fontSize="7" fill={zB.stroke} textAnchor="middle" fontWeight="bold">{zB.label}</text>
-          {hoveredZone === 'B' && (
-            <rect x="305" y="55" width="230" height="250" rx="6" fill="rgba(255,255,255,0.04)" />
-          )}
-        </g>
-
-        {/* ZONE C — Bottom Left (Parcela Sur) */}
-        <g clipPath="url(#mapClip)" onMouseEnter={() => setHoveredZone('C')} onMouseLeave={() => setHoveredZone(null)} style={{ cursor: 'pointer' }}>
-          <rect x="65" y="235" width="220" height="170" rx="6" fill={`url(#gradC)`} />
-          <rect x="65" y="235" width="220" height="170" rx="6" fill="none" stroke={zC.stroke} strokeWidth="1.5" />
-          {[0,1,2,3,4,5,6].map(i => (
-            <line key={i} x1="65" y1={252 + i * 22} x2="285" y2={252 + i * 22}
-              stroke={zC.stroke} strokeWidth="0.3" strokeDasharray="8,12" opacity="0.4" />
-          ))}
-          <text x="80" y="255" fontFamily="DM Mono" fontSize="10" fill={zC.stroke} opacity="0.9">ZONA C</text>
-          <text x="80" y="269" fontFamily="Outfit" fontSize="8.5" fill="rgba(240,253,244,0.5)">Parcela Sur</text>
-          <text x="220" y="255" fontFamily="DM Mono" fontSize="13" fontWeight="bold" fill={zC.stroke} textAnchor="middle">{moisture.C.toFixed(1)}%</text>
-          <text x="220" y="269" fontFamily="DM Mono" fontSize="7.5" fill={zC.stroke} opacity="0.8" textAnchor="middle">HUMEDAD</text>
-          <rect x="198" y="275" width="44" height="14" rx="7" fill={zC.stroke} opacity="0.2" />
-          <text x="220" y="286" fontFamily="DM Mono" fontSize="7" fill={zC.stroke} textAnchor="middle" fontWeight="bold">{zC.label}</text>
-          {hoveredZone === 'C' && (
-            <rect x="65" y="235" width="220" height="170" rx="6" fill="rgba(255,255,255,0.04)" />
-          )}
-        </g>
-
-        {/* Scan line effect */}
-        <g clipPath="url(#mapClip)">
-          <line x1="50" y1={scanY} x2="550" y2={scanY}
-            stroke="rgba(34,197,94,0.25)" strokeWidth="1" />
-          <rect x="50" y={scanY - 20} width="500" height="20"
-            fill="url(#scanGrad)" opacity="0.08" />
-        </g>
-
-        {/* Sensor nodes */}
-        {SENSOR_NODES.map((node, i) => {
-          const zoneColor = node.zone === 'A' ? zA : node.zone === 'B' ? zB : zC
           return (
-            <g key={node.id} transform={`translate(${node.x}, ${node.y})`}>
-              <circle r="10" fill="rgba(3,13,6,0.9)" stroke={zoneColor.stroke} strokeWidth="1" />
-              <circle r="4" fill={zoneColor.stroke} opacity="0.9" />
-              {/* Pulse */}
-              <circle r="10" fill="none" stroke={zoneColor.stroke} strokeWidth="0.8" opacity="0">
-                <animate attributeName="r" values="6;18;6" dur={`${2 + i * 0.3}s`} repeatCount="indefinite" />
-                <animate attributeName="opacity" values="0.8;0;0.8" dur={`${2 + i * 0.3}s`} repeatCount="indefinite" />
-              </circle>
-              <text x="0" y="20" fontFamily="DM Mono" fontSize="7" fill={zoneColor.stroke} textAnchor="middle" opacity="0.8">{node.label}</text>
-            </g>
+            <Rectangle
+              key={key}
+              bounds={bounds}
+              pathOptions={{
+                color:       isRover ? '#ffffff' : cfg.border,
+                weight:      isRover ? 3 : 1.5,
+                fillColor:   cfg.fill,
+                fillOpacity: isRover ? 0.70 : wasSeen ? 0.50 : 0.38,
+                opacity:     1,
+                dashArray:   isRover ? null : null,
+              }}
+              eventHandlers={{
+                click: () => setPopup({ col: c, row: r, zone })
+              }}
+            >
+              <Tooltip sticky={false} permanent={false} direction="top">
+                <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 11, fontWeight: 700 }}>
+                  Zona {zone} · {pct.toFixed(0)}% · {cfg.label}
+                </span>
+              </Tooltip>
+            </Rectangle>
           )
         })}
 
-        {/* Rover trail */}
-        {!isOffline && trail.length > 1 && trail.map((pt, i) => i > 0 && (
-          <line key={i}
-            x1={trail[i-1].x} y1={trail[i-1].y}
-            x2={pt.x} y2={pt.y}
-            stroke="rgba(34,197,94,0.8)"
-            strokeWidth={0.5 + (i / trail.length) * 1.5}
-            opacity={i / trail.length * 0.7}
-          />
-        ))}
-
-        {/* Rover path preview */}
-        <polyline
-          points={ROVER_PATH.map(p => `${p.x},${p.y}`).join(' ')}
-          fill="none"
-          stroke="rgba(34,197,94,0.12)"
-          strokeWidth="1"
-          strokeDasharray="4,8"
+        {/* Rover marker */}
+        <Marker
+          position={roverLatLng}
+          icon={roverIcon}
+          zIndexOffset={1000}
         />
 
-        {/* Rover */}
-        {!isOffline ? (
-          <g transform={`translate(${roverPos.x}, ${roverPos.y})`} filter="url(#glow-green)">
-            {/* Ping rings */}
-            <circle r="16" fill="none" stroke="rgba(34,197,94,0.4)" strokeWidth="1">
-              <animate attributeName="r" values="8;22;8" dur="2s" repeatCount="indefinite" />
-              <animate attributeName="opacity" values="0.8;0;0.8" dur="2s" repeatCount="indefinite" />
-            </circle>
-            <circle r="8" fill="none" stroke="rgba(34,197,94,0.6)" strokeWidth="0.8">
-              <animate attributeName="r" values="6;14;6" dur="2s" begin="0.5s" repeatCount="indefinite" />
-              <animate attributeName="opacity" values="0.6;0;0.6" dur="2s" begin="0.5s" repeatCount="indefinite" />
-            </circle>
-            {/* Body */}
-            <rect x="-9" y="-7" width="18" height="14" rx="3" fill="rgba(34,197,94,0.25)" stroke="rgba(34,197,94,0.9)" strokeWidth="1.5" />
-            {/* Antenna */}
-            <line x1="0" y1="-7" x2="0" y2="-13" stroke="rgba(34,197,94,0.8)" strokeWidth="1" />
-            <circle cx="0" cy="-14" r="2" fill="rgba(34,197,94,1)" />
-            {/* Wheels */}
-            <rect x="-11" y="-4" width="4" height="8" rx="2" fill="rgba(34,197,94,0.5)" />
-            <rect x="7" y="-4" width="4" height="8" rx="2" fill="rgba(34,197,94,0.5)" />
-            {/* Label */}
-            <text x="0" y="20" fontFamily="DM Mono" fontSize="7" fill="rgba(34,197,94,0.9)" textAnchor="middle" fontWeight="bold">ROVER-01</text>
-          </g>
-        ) : (
-          <g transform={`translate(${roverPos.x}, ${roverPos.y})`}>
-            <rect x="-9" y="-7" width="18" height="14" rx="3" fill="rgba(239,68,68,0.15)" stroke="rgba(239,68,68,0.6)" strokeWidth="1.5" strokeDasharray="3,2" />
-            <text x="0" y="20" fontFamily="DM Mono" fontSize="7" fill="rgba(239,68,68,0.9)" textAnchor="middle">OFFLINE</text>
-          </g>
-        )}
+        <RoverFly pos={roverLatLng} />
+      </MapContainer>
 
-        {/* Map border */}
-        <rect x="50" y="40" width="500" height="380" rx="8" fill="none" stroke="rgba(34,197,94,0.15)" strokeWidth="1" />
-
-        {/* Compass */}
-        <g transform="translate(530, 70)">
-          <circle r="14" fill="rgba(3,13,6,0.8)" stroke="rgba(34,197,94,0.25)" strokeWidth="1" />
-          <text x="0" y="-5" fontFamily="DM Mono" fontSize="8" fill="rgba(34,197,94,0.9)" textAnchor="middle">N</text>
-          <line x1="0" y1="-10" x2="0" y2="10" stroke="rgba(34,197,94,0.3)" strokeWidth="0.5" />
-          <line x1="-10" y1="0" x2="10" y2="0" stroke="rgba(34,197,94,0.3)" strokeWidth="0.5" />
-        </g>
-
-        {/* Scale bar */}
-        <g transform="translate(65, 418)">
-          <line x1="0" y1="0" x2="80" y2="0" stroke="rgba(134,239,172,0.5)" strokeWidth="1" />
-          <line x1="0" y1="-3" x2="0" y2="3" stroke="rgba(134,239,172,0.5)" strokeWidth="1" />
-          <line x1="80" y1="-3" x2="80" y2="3" stroke="rgba(134,239,172,0.5)" strokeWidth="1" />
-          <text x="40" y="-5" fontFamily="DM Mono" fontSize="7" fill="rgba(134,239,172,0.6)" textAnchor="middle">200m</text>
-        </g>
-      </svg>
-
-      {/* Floating telemetry widget */}
-      <div className="absolute bottom-3 right-3 glass rounded-xl p-3 border border-neon-700/20 min-w-[140px]">
-        <div className="flex items-center gap-1.5 mb-2">
-          <Navigation size={10} className="text-neon-400" />
-          <span className="font-mono text-[10px] text-neon-400 font-semibold">ROVER TELEMETRÍA</span>
+      {/* Bottom telemetry bar */}
+      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[900] bg-white/95 backdrop-blur-sm rounded-xl px-4 py-2.5 border border-gray-200 flex items-center gap-4"
+        style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.12)', pointerEvents: 'none' }}>
+        <div className="flex items-center gap-1.5">
+          <div className={`w-2 h-2 rounded-full ${isOffline ? 'bg-red-500' : 'bg-green-500'}`} />
+          <span className={`font-mono text-[10px] font-bold ${isOffline ? 'text-red-500' : 'text-green-600'}`}>
+            {isOffline ? 'OFFLINE' : 'EN VIVO'}
+          </span>
         </div>
-        <div className="space-y-1">
-          <div className="flex justify-between gap-4">
-            <span className="font-mono text-[9px] text-sage-500">Velocidad</span>
-            <span className="font-mono text-[10px] text-neon-300">{isOffline ? '—' : `${telemetry.rover.speed?.toFixed(1)} m/s`}</span>
+        <div className="w-px h-5 bg-gray-200"/>
+        <div className="text-center">
+          <div className="text-[8px] font-outfit text-gray-400">Cuadrícula</div>
+          <div className="font-mono text-xs font-bold text-gray-700">[{col},{row}] · Zona {roverZone}</div>
+        </div>
+        <div className="w-px h-5 bg-gray-200"/>
+        <div className="text-center">
+          <div className="text-[8px] font-outfit text-gray-400">Lat / Lon</div>
+          <div className="font-mono text-xs font-bold text-gray-700">
+            {roverLatLng[0].toFixed(4)}° / {roverLatLng[1].toFixed(4)}°
           </div>
-          <div className="flex justify-between gap-4">
-            <span className="font-mono text-[9px] text-sage-500">Señal</span>
-            <span className={`font-mono text-[10px] ${telemetry.rover.signal < 40 ? 'text-critical' : 'text-neon-300'}`}>
-              {telemetry.rover.signal}%
-            </span>
+        </div>
+        <div className="w-px h-5 bg-gray-200"/>
+        <div className="text-center">
+          <div className="text-[8px] font-outfit text-gray-400">Señal</div>
+          <div className={`font-mono text-xs font-bold ${rover.signal < 40 ? 'text-red-500' : 'text-gray-700'}`}>
+            {rover.signal}%
           </div>
-          <div className="flex justify-between gap-4">
-            <span className="font-mono text-[9px] text-sage-500">Latencia</span>
-            <span className={`font-mono text-[10px] ${telemetry.rover.syncLatency > 1000 ? 'text-warning' : 'text-neon-300'}`}>
-              {telemetry.rover.syncLatency}ms
-            </span>
+        </div>
+        <div className="w-px h-5 bg-gray-200"/>
+        <div className="text-center">
+          <div className="text-[8px] font-outfit text-gray-400">Latencia</div>
+          <div className={`font-mono text-xs font-bold ${rover.syncLatency > 1000 ? 'text-red-500' : 'text-gray-700'}`}>
+            {rover.syncLatency}ms
           </div>
         </div>
       </div>
-
-      {/* Hover zone tooltip */}
-      {hoveredZone && (
-        <motion.div
-          initial={{ opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="absolute top-16 left-1/2 -translate-x-1/2 glass rounded-lg px-3 py-2 border border-neon-500/30 pointer-events-none"
-        >
-          <span className="font-mono text-xs text-neon-300">
-            Zona {hoveredZone} · {hoveredZone === 'A' ? moisture.A : hoveredZone === 'B' ? moisture.B : moisture.C}% humedad
-          </span>
-        </motion.div>
-      )}
     </div>
   )
 }

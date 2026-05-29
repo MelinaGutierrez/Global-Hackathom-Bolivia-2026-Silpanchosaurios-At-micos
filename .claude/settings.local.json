@@ -5,7 +5,11 @@
       "Bash(npm run *)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)",
       "Bash(mkdir -p \"C:\\\\Users\\\\melin\\\\OneDrive\\\\Desktop\\\\global_hackatom\\\\sistemas\\\\agrisphere-ai\\\\.claude\")",
-      "mcp__Claude_Preview__preview_start"
+      "mcp__Claude_Preview__preview_start",
+      "Bash(node -e \"require\\('leaflet'\\); console.log\\('ok'\\)\")",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/react/package.json'\\).version, require\\('./node_modules/react-leaflet/package.json'\\).version\\)\")",
+      "Bash(Remove-Item -Recurse -Force \"C:\\\\Users\\\\melin\\\\OneDrive\\\\Desktop\\\\global_hackatom\\\\sistemas\\\\agrisphere-ai\\\\node_modules\\\\.vite\" -ErrorAction SilentlyContinue)",
+      "Bash(Write-Host \"cache cleared\")"
     ]
   }
 }
