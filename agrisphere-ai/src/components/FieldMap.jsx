@@ -358,31 +358,106 @@ export default function FieldMap({ telemetry, tick }) {
                 <text y="4.5" fontSize="9" fontFamily="DM Mono" fill="white"
                   textAnchor="middle" fontWeight="700">{pct.toFixed(0)}%</text>
               )}
+
+              {/* 💧 Water-drop badge — shown on dry/critical fields */}
+              {pct < 40 && !isRover && (
+                <g transform="translate(10,-10)">
+                  <circle r="7.5" fill="#1d4ed8" stroke="white" strokeWidth="1.8"/>
+                  <path d="M0,-4.5 C-2.8,-1.2 -4,1.2 -4,2.8 A4,4 0 0,0 4,2.8 C4,1.2 2.8,-1.2 0,-4.5Z"
+                    fill="white" opacity="0.95"/>
+                  <animateTransform attributeName="transform" type="scale"
+                    values="1;1.15;1" dur="1.8s" repeatCount="indefinite" additive="sum"/>
+                </g>
+              )}
             </g>
           )
         })}
 
-        {/* ── 7. Rover vehicle icon (above current field) ── */}
+        {/* ── 7. Rover AGRS-01 (yellow-green dome, blue trim, sensor mast) ── */}
         {!isOffline && roverField && (
-          <g transform={`translate(${roverField.cx},${roverField.cy - 38})`}
+          <g transform={`translate(${roverField.cx},${roverField.cy - 46})`}
             filter="url(#glow-rover)">
-            {/* Shadow */}
-            <ellipse cx="0" cy="6" rx="9" ry="4" fill="rgba(0,0,0,0.3)"/>
-            {/* Vehicle body */}
-            <rect x="-10" y="-16" width="20" height="15" rx="3" fill="#15803d"/>
-            <rect x="-8"  y="-14" width="16" height="11" rx="2" fill="#16a34a"/>
-            <rect x="-4"  y="-12" width="8"  height="6"  rx="1" fill="#4ade80" opacity="0.8">
-              <animate attributeName="opacity" values="0.8;0.3;0.8" dur="1.1s" repeatCount="indefinite"/>
-            </rect>
-            {/* Antenna */}
-            <line x1="0" y1="-16" x2="0" y2="-24" stroke="#14532d" strokeWidth="1.5"/>
-            <circle cy="-25" r="2.5" fill="#22c55e">
-              <animate attributeName="opacity" values="1;0.2;1" dur="0.8s" repeatCount="indefinite"/>
+
+            {/* Ground shadow */}
+            <ellipse cx="0" cy="16" rx="19" ry="5" fill="rgba(0,0,0,0.38)"/>
+
+            {/* ── WHEELS (4 large knobby) ── */}
+            <ellipse cx="-16" cy="9"  rx="6.5" ry="7.5" fill="#1a1a1a"/>
+            <ellipse cx="-16" cy="9"  rx="4.5" ry="5.5" fill="#2e2e2e"/>
+            <circle  cx="-16" cy="9"  r="1.5"            fill="#555"/>
+            <ellipse cx="16"  cy="9"  rx="6.5" ry="7.5" fill="#1a1a1a"/>
+            <ellipse cx="16"  cy="9"  rx="4.5" ry="5.5" fill="#2e2e2e"/>
+            <circle  cx="16"  cy="9"  r="1.5"            fill="#555"/>
+            <ellipse cx="-15" cy="10" rx="5.5" ry="6.5" fill="#1a1a1a"/>
+            <ellipse cx="15"  cy="10" rx="5.5" ry="6.5" fill="#1a1a1a"/>
+            {/* Wheel tread marks */}
+            {[-3,-1,1,3].map(d => (
+              <g key={d}>
+                <line x1={-16+d} y1="3"  x2={-16+d} y2="15" stroke="#111" strokeWidth="0.7"/>
+                <line x1={ 16+d} y1="3"  x2={ 16+d} y2="15" stroke="#111" strokeWidth="0.7"/>
+              </g>
+            ))}
+
+            {/* ── LEG ARMS (dark metal, angled) ── */}
+            <line x1="-9" y1="1"  x2="-16" y2="9"  stroke="#2a2a2a" strokeWidth="3"   strokeLinecap="round"/>
+            <line x1="9"  y1="1"  x2="16"  y2="9"  stroke="#2a2a2a" strokeWidth="3"   strokeLinecap="round"/>
+            <line x1="-8" y1="2"  x2="-15" y2="10" stroke="#444"    strokeWidth="1.5" strokeLinecap="round"/>
+            <line x1="8"  y1="2"  x2="15"  y2="10" stroke="#444"    strokeWidth="1.5" strokeLinecap="round"/>
+
+            {/* ── CHASSIS BASE ── */}
+            <rect x="-12" y="-5" width="24" height="11" rx="2.5" fill="#212121"/>
+            <rect x="-10" y="-3" width="20" height="7"  rx="1.5" fill="#2d2d2d"/>
+
+            {/* ── BLUE TRIM RING (lower collar) ── */}
+            <ellipse cx="0" cy="-1" rx="12" ry="4.5" fill="none" stroke="#1565c0" strokeWidth="3"/>
+            <ellipse cx="0" cy="-1" rx="12" ry="4.5" fill="none" stroke="#64b5f6" strokeWidth="1"/>
+
+            {/* ── DOME BODY (yellow-green, like reference image) ── */}
+            <ellipse cx="0" cy="-10" rx="12"  ry="10"   fill="#7cb342"/>
+            <ellipse cx="0" cy="-11" rx="10.5" ry="8.5" fill="#c6e040"/>
+            {/* Blue accent wedges on dome */}
+            <path d="M-12,-8 C-10,-14 -5,-17 0,-17 L0,-10 Z"   fill="#1565c0" opacity="0.75"/>
+            <path d="M12,-8  C10,-14  5,-17 0,-17 L0,-10 Z"    fill="#1565c0" opacity="0.75"/>
+            {/* Dome sheen */}
+            <ellipse cx="-3" cy="-14" rx="4" ry="3" fill="rgba(255,255,255,0.25)"/>
+            {/* Center logo dot */}
+            <circle cx="0" cy="-11" r="2.5" fill="white" opacity="0.6"/>
+
+            {/* ── SOLAR PANEL (small tilted, attached to mast) ── */}
+            <g transform="translate(5,-20) rotate(-25)">
+              <rect x="-7" y="-3" width="14" height="6" rx="0.8" fill="#0d47a1"/>
+              <rect x="-7" y="-3" width="14" height="6" rx="0.8" fill="none" stroke="#42a5f5" strokeWidth="0.6"/>
+              {[-3.5,0,3.5].map(x => (
+                <line key={x} x1={x} y1="-3" x2={x} y2="3" stroke="#0a3880" strokeWidth="0.5"/>
+              ))}
+              <line x1="-7" y1="0" x2="7" y2="0" stroke="#0a3880" strokeWidth="0.5"/>
+              {/* Panel arm */}
+              <line x1="0" y1="-3" x2="0" y2="-6" stroke="#666" strokeWidth="1.2"/>
+            </g>
+
+            {/* ── SENSOR MAST (silver tube, tall) ── */}
+            <rect x="-1.5" y="-37" width="3" height="20" rx="1.5" fill="#9e9e9e"/>
+            <rect x="-0.5" y="-37" width="1" height="20"          fill="#e0e0e0" opacity="0.8"/>
+            {/* Blue sensor modules on mast */}
+            {[-34,-28,-22].map(y => (
+              <g key={y}>
+                <rect x="-4" y={y} width="8" height="5" rx="1.5" fill="#1565c0"/>
+                <rect x="-4" y={y} width="8" height="5" rx="1.5" fill="#42a5f5" opacity="0.45"/>
+                <rect x="-3" y={y+1} width="2" height="3" rx="0.5" fill="#90caf9" opacity="0.8"/>
+              </g>
+            ))}
+            {/* Camera/sensor head at top */}
+            <circle cy="-39" r="4.5" fill="#546e7a"/>
+            <circle cy="-39" r="3"   fill="#37474f"/>
+            <circle cy="-39" r="1.5" fill="#b0bec5">
+              <animate attributeName="opacity" values="1;0.2;1" dur="0.85s" repeatCount="indefinite"/>
             </circle>
-            {/* Label tag */}
-            <rect x="-20" y="-36" width="40" height="14" rx="7" fill="white" opacity="0.97"/>
-            <text x="0" y="-25" fontSize="7" fontFamily="DM Mono"
-              fill="#111827" textAnchor="middle" fontWeight="700">ROVER-01</text>
+            <rect x="-4.5" y="-45" width="9" height="4" rx="1" fill="#455a64"/>
+
+            {/* ── LABEL TAG ── */}
+            <rect x="-23" y="-56" width="46" height="14" rx="7" fill="white" opacity="0.97"/>
+            <text x="0" y="-45.5" fontSize="7" fontFamily="DM Mono"
+              fill="#111827" textAnchor="middle" fontWeight="700">AGRS-01</text>
           </g>
         )}
 
