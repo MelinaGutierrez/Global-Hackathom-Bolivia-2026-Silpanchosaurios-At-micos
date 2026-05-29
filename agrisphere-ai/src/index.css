@@ -2,86 +2,54 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Single font: Outfit everywhere ─────────────────── */
+.font-mono    { font-family: 'Outfit', sans-serif; }
+.font-display { font-family: 'Outfit', sans-serif; }
+.font-data    { font-family: 'Outfit', sans-serif; }
+.font-outfit  { font-family: 'Outfit', sans-serif; }
+
+/* ── 3-color design tokens ───────────────────────────── */
 :root {
-  --bg-app:    #f0f4ee;
+  --ink:     #0f172a;
+  --paper:   #f8fafc;
+  --green:   #16a34a;
+
+  --ink-4:   rgba(15,23,42,0.04);
+  --ink-8:   rgba(15,23,42,0.08);
+  --ink-12:  rgba(15,23,42,0.12);
+  --ink-30:  rgba(15,23,42,0.30);
+  --ink-50:  rgba(15,23,42,0.50);
+  --green-8: rgba(22,163,74,0.08);
+  --green-15:rgba(22,163,74,0.15);
+  --green-25:rgba(22,163,74,0.25);
+
+  --bg-app:    var(--paper);
   --bg-card:   #ffffff;
-  --bg-sidebar:#ffffff;
-  --border:    #e2e8dd;
-  --border-strong: #c8d4c2;
-  --text-primary: #1a2e1a;
-  --text-secondary: #4a6448;
-  --text-muted: #8ea88a;
-  --green-1: #16a34a;
-  --green-2: #22c55e;
-  --green-light: #dcfce7;
-  --critical: #ef4444;
-  --warning: #f59e0b;
-  --info: #3b82f6;
-  --aquifer: #0ea5e9;
+  --border:    var(--ink-8);
+  --text-1:    var(--ink);
+  --text-2:    var(--ink-50);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-html, body, #root {
-  width: 100%; height: 100%; overflow: hidden;
-}
+html, body, #root { width: 100%; height: 100%; overflow: hidden; }
 
 body {
   font-family: 'Outfit', sans-serif;
-  background: var(--bg-app);
-  color: var(--text-primary);
+  background: var(--paper);
+  color: var(--ink);
   -webkit-font-smoothing: antialiased;
 }
 
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #c8d4c2; border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: var(--ink-12); border-radius: 2px; }
 
-.card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-}
-.card-sm {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-}
-.font-display { font-family: 'Syne', sans-serif; }
-.font-data    { font-family: 'DM Mono', monospace; }
+.card    { background: #fff; border: 1px solid var(--ink-8);  border-radius: 12px; }
+.card-sm { background: #fff; border: 1px solid var(--ink-8);  border-radius: 8px;  }
 
-/* Subtle shadow tiers */
-.shadow-card { box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04); }
-.shadow-float { box-shadow: 0 8px 24px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06); }
+.shadow-card  { box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03); }
+.shadow-float { box-shadow: 0 8px 24px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04); }
 
-/* AI decision pulse */
-@keyframes ai-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
-}
+@keyframes ai-pulse { 0%,100%{opacity:1} 50%{opacity:0.55} }
 .ai-urgent { animation: ai-pulse 1.4s ease-in-out infinite; }
-
-/* Leaflet cell labels */
-.cell-label {
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  padding: 0 !important;
-}
-.cell-label::before { display: none !important; }
-.cell-label .leaflet-tooltip-content { margin: 0; }
-
-.cell-badge {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  padding: 3px 5px;
-  backdrop-filter: blur(2px);
-  pointer-events: none;
-  line-height: 1.2;
-}
-.cell-badge .pct  { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 700; }
-.cell-badge .lbl  { font-family: 'Outfit', sans-serif; font-size: 9px; font-weight: 600; margin-top: 1px; }
-.cell-badge .icon { font-size: 11px; }

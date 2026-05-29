@@ -15,7 +15,7 @@ export const SCENARIOS = {
     et0: 4.2,
     aiDecision: 'IRRIGATE_NOW',
     aiConfidence: 88,
-    aiMessage: 'Zonas B y C con humedad crítica. Se requiere riego inmediato en parcelas Central y Sur.',
+    aiMessage: 'Zones B and C critically dry. Immediate irrigation required in Central and South plots.',
     aiVolume: null,
     description: 'Sistema operando en condiciones normales.',
   },

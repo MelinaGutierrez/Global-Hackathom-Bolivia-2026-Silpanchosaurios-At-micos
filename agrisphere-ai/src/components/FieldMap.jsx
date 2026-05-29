@@ -41,13 +41,13 @@ const ALL_FIELDS = [
 
 const ROVER_SEQ = ALL_FIELDS.map(f => f.id)
 
-/* ─── Moisture config ───────────────────────────────────── */
+/* ─── Full-color moisture config ────────────────────────── */
 function mCfg(pct) {
-  if (pct < 25) return { fill:'#7f1d1d', stroke:'#ef4444', pin:'#dc2626', label:'Crítico',   icon:'🚨', action:'Irrigar YA',       text:'#fef2f2' }
-  if (pct < 40) return { fill:'#78350f', stroke:'#f59e0b', pin:'#d97706', label:'Seco',      icon:'💧', action:'Irrigar pronto',    text:'#fffbeb' }
-  if (pct < 70) return { fill:'#14532d', stroke:'#22c55e', pin:'#16a34a', label:'Óptimo',    icon:'✅', action:'Sin acción',         text:'#f0fdf4' }
-  if (pct < 85) return { fill:'#1e3a8a', stroke:'#60a5fa', pin:'#2563eb', label:'Húmedo',    icon:'💦', action:'Monitorear',         text:'#eff6ff' }
-  return             { fill:'#3b0764', stroke:'#c084fc', pin:'#7c3aed', label:'Saturado',  icon:'⛔', action:'Detener riego',      text:'#faf5ff' }
+  if (pct < 25) return { fill:'#7f1d1d', stroke:'#ef4444', pin:'#dc2626', label:'Critical',  icon:'⚠',  action:'Irrigate NOW',   text:'#fef2f2' }
+  if (pct < 40) return { fill:'#78350f', stroke:'#f59e0b', pin:'#d97706', label:'Dry',       icon:'💧', action:'Irrigate Soon',  text:'#fffbeb' }
+  if (pct < 70) return { fill:'#14532d', stroke:'#22c55e', pin:'#16a34a', label:'Optimal',   icon:'✓',  action:'No Action',      text:'#f0fdf4' }
+  if (pct < 85) return { fill:'#1e3a8a', stroke:'#60a5fa', pin:'#2563eb', label:'Wet',       icon:'~',  action:'Monitor',        text:'#eff6ff' }
+  return             { fill:'#3b0764', stroke:'#c084fc', pin:'#7c3aed', label:'Saturated', icon:'⛔', action:'Stop Irrigation', text:'#faf5ff' }
 }
 
 /* ─── Background terrain polygons (simula vista aérea) ──── */
@@ -103,57 +103,69 @@ const RIVER_PTS2 = '0,478 80,470 180,466 300,456 400,453 500,458 600,450 700,446
 
 /* ─── Cell popup ────────────────────────────────────────── */
 function FieldPopup({ field, zone, pct, onClose }) {
-  const cfg = mCfg(pct)
-  const names = { A:'Parcela Norte', B:'Parcela Central', C:'Parcela Sur' }
+  const cfg   = mCfg(pct)
+  const names = { A:'North Plot', B:'Central Plot', C:'South Plot' }
+  const INK   = '#0f172a'
+  const GREEN = '#16a34a'
+  const ink   = (o) => `rgba(15,23,42,${o})`
+  const isLow = pct < 40
+  const ac    = isLow ? INK : GREEN
+
   return (
     <motion.div
       initial={{ opacity:0, y:-8, scale:0.96 }}
       animate={{ opacity:1, y:0, scale:1 }}
       exit={{ opacity:0, y:-4, scale:0.97 }}
-      className="absolute top-14 left-1/2 -translate-x-1/2 z-30 bg-white rounded-2xl shadow-float border border-gray-200 overflow-hidden pointer-events-auto"
-      style={{ width:280 }}
+      className="absolute top-14 left-1/2 -translate-x-1/2 z-30 overflow-hidden pointer-events-auto"
+      style={{ width:272, background:'#fff', borderRadius:14,
+        border:`1px solid ${ink(0.10)}`, boxShadow:'0 8px 28px rgba(0,0,0,0.10)' }}
     >
-      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between"
-        style={{ background: cfg.text }}>
+      <div className="px-4 py-3 flex items-center justify-between"
+        style={{ borderBottom:`1px solid ${ink(0.07)}`, background:isLow ? ink(0.03) : 'rgba(22,163,74,0.05)' }}>
         <div>
-          <div className="font-display font-bold text-sm" style={{ color: cfg.pin }}>
-            {cfg.icon} {field} · Zona {zone}
+          <div style={{ fontFamily:'Outfit', fontSize:13, fontWeight:700, color:ac }}>
+            {field} · Zone {zone}
           </div>
-          <div className="text-xs font-outfit text-gray-500">{names[zone]}</div>
+          <div style={{ fontFamily:'Outfit', fontSize:10, color:ink(0.45) }}>{names[zone]}</div>
         </div>
-        <button onClick={onClose} className="w-6 h-6 rounded-full bg-white flex items-center justify-center">
-          <X size={11} className="text-gray-400"/>
+        <button onClick={onClose} className="w-6 h-6 rounded-full flex items-center justify-center"
+          style={{ background:ink(0.05), border:`1px solid ${ink(0.08)}` }}>
+          <X size={10} style={{ color:ink(0.50) }}/>
         </button>
       </div>
-      <div className="px-4 py-3 space-y-3">
+      <div className="px-4 py-3" style={{ display:'flex', flexDirection:'column', gap:10 }}>
         <div>
           <div className="flex justify-between items-baseline mb-1.5">
-            <span className="text-xs font-outfit text-gray-500">Humedad del suelo</span>
-            <span className="font-mono text-2xl font-bold" style={{ color:cfg.pin }}>{pct.toFixed(1)}%</span>
+            <span style={{ fontFamily:'Outfit', fontSize:10, color:ink(0.45) }}>Soil Moisture</span>
+            <span style={{ fontFamily:'Outfit', fontSize:22, fontWeight:700, color:ac }}>{pct.toFixed(1)}%</span>
           </div>
-          <div className="h-3 rounded-full bg-gray-100 overflow-hidden">
-            <motion.div className="h-full rounded-full" style={{ background:cfg.pin }}
+          <div className="rounded-full overflow-hidden" style={{ height:6, background:ink(0.07) }}>
+            <motion.div className="h-full rounded-full" style={{ background:ac }}
               animate={{ width:`${pct}%` }} transition={{ duration:0.6 }}/>
           </div>
         </div>
-        <div className="rounded-xl px-3 py-2.5 flex items-center gap-3 border"
-          style={{ background:cfg.text, borderColor:cfg.pin+'30' }}>
-          <span className="text-2xl">{cfg.icon}</span>
+        <div className="rounded-xl px-3 py-2.5 flex items-center gap-3"
+          style={{ background: isLow ? ink(0.04) : 'rgba(22,163,74,0.06)',
+            border:`1px solid ${isLow ? ink(0.10) : 'rgba(22,163,74,0.18)'}` }}>
+          <div style={{ fontFamily:'Outfit', fontSize:18 }}>{cfg.icon}</div>
           <div>
-            <div className="font-display font-bold text-base" style={{ color:cfg.pin }}>{cfg.action}</div>
-            <div className="text-[10px] font-outfit text-gray-500">{cfg.label} — {pct.toFixed(0)}% humedad radicular</div>
+            <div style={{ fontFamily:'Outfit', fontSize:14, fontWeight:700, color:ac }}>{cfg.action}</div>
+            <div style={{ fontFamily:'Outfit', fontSize:10, color:ink(0.45) }}>
+              {cfg.label} — {pct.toFixed(0)}% root moisture
+            </div>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-1.5">
           {[
-            { label:'Conductividad', value:`${(0.3+pct*0.005).toFixed(2)} dS/m` },
-            { label:'Temp. suelo',   value:`${(18+pct*0.14).toFixed(1)}°C` },
-            { label:'Potencial',     value:`${(-10-(100-pct)*0.8).toFixed(0)} kPa` },
-            { label:'Parcela',       value:field },
+            { label:'Conductivity', value:`${(0.3+pct*0.005).toFixed(2)} dS/m` },
+            { label:'Soil Temp.',   value:`${(18+pct*0.14).toFixed(1)}°C` },
+            { label:'Water Pot.',   value:`${(-10-(100-pct)*0.8).toFixed(0)} kPa` },
+            { label:'Plot ID',      value:field },
           ].map(r => (
-            <div key={r.label} className="rounded-lg bg-gray-50 px-2.5 py-2">
-              <div className="text-[9px] font-outfit text-gray-400">{r.label}</div>
-              <div className="font-mono text-xs font-bold text-gray-700">{r.value}</div>
+            <div key={r.label} className="rounded-lg px-2.5 py-2"
+              style={{ background:ink(0.03), border:`1px solid ${ink(0.06)}` }}>
+              <div style={{ fontFamily:'Outfit', fontSize:9, color:ink(0.38), textTransform:'uppercase', letterSpacing:'0.05em' }}>{r.label}</div>
+              <div style={{ fontFamily:'Outfit', fontSize:11, fontWeight:700, color:INK }}>{r.value}</div>
             </div>
           ))}
         </div>
@@ -208,10 +220,12 @@ export default function FieldMap({ telemetry, tick }) {
 
       {/* Badge */}
       <div className="absolute top-3 left-3 z-20">
-        <div className="bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-gray-200 shadow-sm flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"/>
-          <span className="font-display font-bold text-xs text-gray-700">Sembradíos · Cliza</span>
-          <span className="font-mono text-[9px] text-gray-400 ml-1">14 parcelas activas</span>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
+          style={{ background:'rgba(255,255,255,0.92)', border:'1px solid rgba(15,23,42,0.10)',
+            boxShadow:'0 2px 8px rgba(0,0,0,0.08)', backdropFilter:'blur(4px)' }}>
+          <div className="w-2 h-2 rounded-full" style={{ background:'#16a34a', animation:'pulse 1.5s infinite' }}/>
+          <span style={{ fontFamily:'Outfit', fontSize:11, fontWeight:700, color:'#0f172a' }}>HydroSphere · Cliza</span>
+          <span style={{ fontFamily:'Outfit', fontSize:9, color:'rgba(15,23,42,0.40)', marginLeft:2 }}>14 active plots</span>
         </div>
       </div>
 
@@ -278,7 +292,7 @@ export default function FieldMap({ telemetry, tick }) {
         <polyline points={RIVER_PTS}  fill="none" stroke="#1d4ed8" strokeWidth="6" strokeLinecap="round" opacity="0.8"/>
         <polyline points={RIVER_PTS2} fill="none" stroke="#93c5fd" strokeWidth="2" strokeLinecap="round" opacity="0.7"/>
         <text x="300" y="445" fontSize="8" fontFamily="Outfit" fill="#93c5fd" fontWeight="600" opacity="0.9"
-          transform="rotate(-2,300,445)">Río Cliza</text>
+          transform="rotate(-2,300,445)">Cliza River</text>
 
         {/* ── 5. Monitored field polygons ── */}
         {ALL_FIELDS.map(f => {
@@ -351,18 +365,18 @@ export default function FieldMap({ telemetry, tick }) {
               {isRover ? (
                 <>
                   <text y="-3" fontSize="10" textAnchor="middle">{cfg.icon}</text>
-                  <text y="9" fontSize="8" fontFamily="DM Mono" fill="white"
+                  <text y="9" fontSize="8" fontFamily="Outfit" fill="white"
                     textAnchor="middle" fontWeight="700">{pct.toFixed(0)}%</text>
                 </>
               ) : (
-                <text y="4.5" fontSize="9" fontFamily="DM Mono" fill="white"
+                <text y="4.5" fontSize="9" fontFamily="Outfit" fill="white"
                   textAnchor="middle" fontWeight="700">{pct.toFixed(0)}%</text>
               )}
 
               {/* 💧 Water-drop badge — shown on dry/critical fields */}
               {pct < 40 && !isRover && (
                 <g transform="translate(10,-10)">
-                  <circle r="7.5" fill="#1d4ed8" stroke="white" strokeWidth="1.8"/>
+                  <circle r="7.5" fill={pct < 25 ? '#dc2626' : '#d97706'} stroke="white" strokeWidth="1.8"/>
                   <path d="M0,-4.5 C-2.8,-1.2 -4,1.2 -4,2.8 A4,4 0 0,0 4,2.8 C4,1.2 2.8,-1.2 0,-4.5Z"
                     fill="white" opacity="0.95"/>
                   <animateTransform attributeName="transform" type="scale"
@@ -456,8 +470,8 @@ export default function FieldMap({ telemetry, tick }) {
 
             {/* ── LABEL TAG ── */}
             <rect x="-23" y="-56" width="46" height="14" rx="7" fill="white" opacity="0.97"/>
-            <text x="0" y="-45.5" fontSize="7" fontFamily="DM Mono"
-              fill="#111827" textAnchor="middle" fontWeight="700">AGRS-01</text>
+            <text x="0" y="-45.5" fontSize="7" fontFamily="Outfit"
+              fill="#111827" textAnchor="middle" fontWeight="700">HR-01</text>
           </g>
         )}
 
@@ -467,7 +481,7 @@ export default function FieldMap({ telemetry, tick }) {
             <circle r="16" fill="rgba(239,68,68,0.2)" stroke="#ef4444" strokeWidth="2" strokeDasharray="3,2"/>
             <text y="5" fontSize="12" textAnchor="middle">⚠️</text>
             <rect x="-18" y="-30" width="36" height="13" rx="6" fill="white" opacity="0.95"/>
-            <text y="-20" fontSize="7" fontFamily="DM Mono" fill="#ef4444" textAnchor="middle" fontWeight="700">OFFLINE</text>
+            <text y="-20" fontSize="7" fontFamily="Outfit" fill="#ef4444" textAnchor="middle" fontWeight="700">OFFLINE</text>
           </g>
         )}
 
@@ -483,9 +497,9 @@ export default function FieldMap({ telemetry, tick }) {
             <g key={z.zone}>
               <rect x={z.x-22} y={z.y-9} width={44} height={18} rx={9}
                 fill="rgba(255,255,255,0.92)" stroke={cfg.pin} strokeWidth="1.2"/>
-              <text x={z.x} y={z.y+5} fontSize="8.5" fontFamily="Syne"
+              <text x={z.x} y={z.y+5} fontSize="8.5" fontFamily="Outfit"
                 fill={cfg.pin} textAnchor="middle" fontWeight="700">
-                ZONA {z.zone}
+                ZONE {z.zone}
               </text>
             </g>
           )
@@ -495,14 +509,14 @@ export default function FieldMap({ telemetry, tick }) {
         <g transform="translate(600,290)">
           <rect x="-24" y="-10" width="48" height="20" rx="4"
             fill="rgba(255,255,255,0.92)" stroke="#d1d5db" strokeWidth="0.8"/>
-          <text x="0" y="5" fontSize="9" fontFamily="Syne"
+          <text x="0" y="5" fontSize="9" fontFamily="Outfit"
             fill="#111827" textAnchor="middle" fontWeight="700">CLIZA</text>
         </g>
 
         {/* ── 10. Compass ── */}
         <g transform="translate(790,56)">
           <circle r="18" fill="rgba(255,255,255,0.92)" stroke="#e5e7eb" strokeWidth="1"/>
-          <text x="0" y="-3"  fontSize="7.5" fontFamily="Syne" fill="#111827" textAnchor="middle" fontWeight="700">N</text>
+          <text x="0" y="-3"  fontSize="7.5" fontFamily="Outfit" fill="#111827" textAnchor="middle" fontWeight="700">N</text>
           <text x="0" y="12"  fontSize="6"   fontFamily="Outfit" fill="#6b7280" textAnchor="middle">S</text>
           <text x="-11" y="4" fontSize="6"   fontFamily="Outfit" fill="#6b7280" textAnchor="middle">O</text>
           <text x="11"  y="4" fontSize="6"   fontFamily="Outfit" fill="#6b7280" textAnchor="middle">E</text>
@@ -513,13 +527,13 @@ export default function FieldMap({ telemetry, tick }) {
         <g transform="translate(8,340)">
           <rect x="0" y="0" width="112" height="114" rx="7"
             fill="rgba(255,255,255,0.92)" stroke="#e5e7eb" strokeWidth="0.8"/>
-          <text x="8" y="14" fontSize="7" fontFamily="Syne" fill="#374151" fontWeight="700">NIVEL DE HUMEDAD</text>
+          <text x="8" y="14" fontSize="7" fontFamily="Outfit" fill="#0f172a" fontWeight="700">MOISTURE LEVEL</text>
           {[
-            { pct:18, label:'Crítico  (<25%)' },
-            { pct:33, label:'Seco     (25-40%)' },
-            { pct:55, label:'Óptimo   (40-70%)' },
-            { pct:77, label:'Húmedo   (70-85%)' },
-            { pct:90, label:'Saturado (>85%)' },
+            { pct:18, label:'Critical  (<25%)' },
+            { pct:33, label:'Dry       (25-40%)' },
+            { pct:55, label:'Optimal   (40-70%)' },
+            { pct:77, label:'Wet       (70-85%)' },
+            { pct:90, label:'Saturated (>85%)' },
           ].map((l, i) => {
             const c = mCfg(l.pct)
             return (
@@ -537,41 +551,51 @@ export default function FieldMap({ telemetry, tick }) {
           <line x1="0" y1="0" x2="80" y2="0" stroke="#374151" strokeWidth="1.2"/>
           <line x1="0" y1="-3" x2="0" y2="3" stroke="#374151" strokeWidth="1.2"/>
           <line x1="80" y1="-3" x2="80" y2="3" stroke="#374151" strokeWidth="1.2"/>
-          <text x="40" y="-2" fontSize="6" fontFamily="DM Mono" fill="#374151" textAnchor="middle" fontWeight="600">500 m</text>
+          <text x="40" y="-2" fontSize="6" fontFamily="Outfit" fill="#374151" textAnchor="middle" fontWeight="600">500 m</text>
         </g>
       </svg>
 
       {/* ── Telemetry bar ── */}
-      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 bg-white/95 backdrop-blur-sm rounded-xl px-4 py-2 border border-gray-200 flex items-center gap-4"
-        style={{ boxShadow:'0 4px 20px rgba(0,0,0,0.12)', pointerEvents:'none' }}>
+      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-4 rounded-xl px-4 py-2"
+        style={{ background:'rgba(255,255,255,0.95)', backdropFilter:'blur(6px)',
+          border:'1px solid rgba(15,23,42,0.09)', boxShadow:'0 4px 20px rgba(0,0,0,0.10)',
+          pointerEvents:'none' }}>
+        {/* Live status */}
         <div className="flex items-center gap-1.5">
-          <div className={`w-2 h-2 rounded-full ${isOffline ? 'bg-red-500' : 'bg-green-500'}`}
-            style={!isOffline ? { animation:'pulse 1.5s infinite' } : {}}/>
-          <span className={`font-mono text-[10px] font-bold ${isOffline ? 'text-red-500' : 'text-green-600'}`}>
-            {isOffline ? 'OFFLINE' : 'EN VIVO'}
+          <div className="w-2 h-2 rounded-full"
+            style={{ background: isOffline ? '#0f172a' : '#16a34a',
+              animation: isOffline ? 'none' : 'pulse 1.5s infinite' }}/>
+          <span style={{ fontFamily:'Outfit', fontSize:10, fontWeight:700, letterSpacing:'0.06em',
+            color: isOffline ? '#0f172a' : '#16a34a' }}>
+            {isOffline ? 'OFFLINE' : 'LIVE'}
           </span>
         </div>
-        <div className="w-px h-5 bg-gray-200"/>
+        <div style={{ width:1, height:20, background:'rgba(15,23,42,0.10)' }}/>
+        {/* Current plot */}
         <div className="text-center">
-          <div className="text-[8px] font-outfit text-gray-400">Parcela actual</div>
-          <div className="font-mono text-xs font-bold text-gray-700">{roverField?.id} · Zona {roverZone}</div>
+          <div style={{ fontFamily:'Outfit', fontSize:8, color:'rgba(15,23,42,0.40)', textTransform:'uppercase', letterSpacing:'0.06em' }}>Current Plot</div>
+          <div style={{ fontFamily:'Outfit', fontSize:12, fontWeight:700, color:'#0f172a' }}>{roverField?.id} · Zone {roverZone}</div>
         </div>
-        <div className="w-px h-5 bg-gray-200"/>
+        <div style={{ width:1, height:20, background:'rgba(15,23,42,0.10)' }}/>
+        {/* Moisture */}
         <div className="text-center">
-          <div className="text-[8px] font-outfit text-gray-400">Humedad</div>
-          <div className="font-mono text-xs font-bold" style={{ color:roverCfg.pin }}>
+          <div style={{ fontFamily:'Outfit', fontSize:8, color:'rgba(15,23,42,0.40)', textTransform:'uppercase', letterSpacing:'0.06em' }}>Moisture</div>
+          <div style={{ fontFamily:'Outfit', fontSize:12, fontWeight:700, color: roverPct < 40 ? '#0f172a' : '#16a34a' }}>
             {roverPct.toFixed(1)}% · {roverCfg.label}
           </div>
         </div>
-        <div className="w-px h-5 bg-gray-200"/>
+        <div style={{ width:1, height:20, background:'rgba(15,23,42,0.10)' }}/>
+        {/* AI Decision */}
         <div className="text-center">
-          <div className="text-[8px] font-outfit text-gray-400">Decisión IA</div>
-          <div className="font-mono text-xs font-bold text-gray-700">{roverCfg.icon} {roverCfg.action}</div>
+          <div style={{ fontFamily:'Outfit', fontSize:8, color:'rgba(15,23,42,0.40)', textTransform:'uppercase', letterSpacing:'0.06em' }}>AI Decision</div>
+          <div style={{ fontFamily:'Outfit', fontSize:12, fontWeight:700, color:'#0f172a' }}>{roverCfg.action}</div>
         </div>
-        <div className="w-px h-5 bg-gray-200"/>
+        <div style={{ width:1, height:20, background:'rgba(15,23,42,0.10)' }}/>
+        {/* Signal */}
         <div className="text-center">
-          <div className="text-[8px] font-outfit text-gray-400">Señal</div>
-          <div className={`font-mono text-xs font-bold ${rover.signal < 40 ? 'text-red-500' : 'text-gray-700'}`}>{rover.signal}%</div>
+          <div style={{ fontFamily:'Outfit', fontSize:8, color:'rgba(15,23,42,0.40)', textTransform:'uppercase', letterSpacing:'0.06em' }}>Signal</div>
+          <div style={{ fontFamily:'Outfit', fontSize:12, fontWeight:700,
+            color: rover.signal < 40 ? '#0f172a' : 'rgba(15,23,42,0.65)' }}>{rover.signal}%</div>
         </div>
       </div>
     </div>

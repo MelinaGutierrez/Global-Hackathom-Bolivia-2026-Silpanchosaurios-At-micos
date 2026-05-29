@@ -1,14 +1,26 @@
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 
+const INK   = '#0f172a'
+const GREEN = '#16a34a'
+const ink   = (o) => `rgba(15,23,42,${o})`
+const gn    = (o) => `rgba(22,163,74,${o})`
+
+// Zone A: ink (may be dry), Zone B: green, Zone C: mid-ink
+const ZONE_COLORS = { A: INK, B: GREEN, C: gn(0.55) }
+
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-white rounded-lg p-2 border border-gray-200 shadow-float text-xs">
-      <div className="font-outfit text-gray-400 mb-1">{label}</div>
+    <div style={{
+      background:'#fff', borderRadius:8, padding:'8px 10px',
+      border:`1px solid ${ink(0.10)}`, boxShadow:'0 4px 12px rgba(0,0,0,0.07)',
+      fontFamily:'Outfit'
+    }}>
+      <div style={{ fontSize:9, fontWeight:500, color:ink(0.40), marginBottom:4, letterSpacing:'0.05em', textTransform:'uppercase' }}>{label}</div>
       {payload.map(p => (
-        <div key={p.dataKey} className="flex justify-between gap-3">
-          <span className="font-outfit" style={{ color: p.color }}>Zona {p.dataKey}</span>
-          <span className="font-mono font-bold" style={{ color: p.color }}>{p.value?.toFixed(1)}%</span>
+        <div key={p.dataKey} style={{ display:'flex', justifyContent:'space-between', gap:12, fontSize:11 }}>
+          <span style={{ color:ZONE_COLORS[p.dataKey], fontWeight:500 }}>Zone {p.dataKey}</span>
+          <span style={{ color:ZONE_COLORS[p.dataKey], fontWeight:700 }}>{p.value?.toFixed(1)}%</span>
         </div>
       ))}
     </div>
@@ -19,32 +31,39 @@ export default function MoistureTrend({ data }) {
   const recent = data?.slice(-12) || []
   return (
     <div>
-      <div className="flex items-center gap-3 mb-2">
-        {[{ k:'A', c:'#ef4444' }, { k:'B', c:'#16a34a' }, { k:'C', c:'#3b82f6' }].map(z => (
-          <div key={z.k} className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full" style={{ background: z.c }} />
-            <span className="text-[9px] font-outfit text-gray-400">Z-{z.k}</span>
+      <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:6 }}>
+        {Object.entries(ZONE_COLORS).map(([k,c]) => (
+          <div key={k} style={{ display:'flex', alignItems:'center', gap:4 }}>
+            <div style={{ width:8, height:8, borderRadius:'50%', background:c }} />
+            <span style={{ fontFamily:'Outfit', fontSize:9, fontWeight:500, color:ink(0.40), letterSpacing:'0.04em' }}>
+              Zone {k}
+            </span>
           </div>
         ))}
       </div>
-      <ResponsiveContainer width="100%" height={80}>
-        <AreaChart data={recent} margin={{ top: 4, right: 0, bottom: 0, left: -24 }}>
+      <ResponsiveContainer width="100%" height={72}>
+        <AreaChart data={recent} margin={{ top:4, right:0, bottom:0, left:-24 }}>
           <defs>
-            {[['A','#ef4444'],['B','#16a34a'],['C','#3b82f6']].map(([k,c]) => (
+            {Object.entries(ZONE_COLORS).map(([k,c]) => (
               <linearGradient key={k} id={`mg${k}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%"  stopColor={c} stopOpacity={0.2}/>
+                <stop offset="5%"  stopColor={c} stopOpacity={0.18}/>
                 <stop offset="95%" stopColor={c} stopOpacity={0}/>
               </linearGradient>
             ))}
           </defs>
-          <XAxis dataKey="hour" tick={{ fontSize: 7, fill: '#9ca3af', fontFamily: 'DM Mono' }} tickLine={false} axisLine={false} interval={4} />
-          <YAxis domain={[0,100]} tick={{ fontSize: 7, fill: '#9ca3af', fontFamily: 'DM Mono' }} tickLine={false} axisLine={false} />
-          <ReferenceLine y={30} stroke="rgba(239,68,68,0.2)" strokeDasharray="3,3" />
-          <ReferenceLine y={70} stroke="rgba(59,130,246,0.2)" strokeDasharray="3,3" />
+          <XAxis dataKey="hour"
+            tick={{ fontSize:7, fill:ink(0.35), fontFamily:'Outfit' }}
+            tickLine={false} axisLine={false} interval={4} />
+          <YAxis domain={[0,100]}
+            tick={{ fontSize:7, fill:ink(0.35), fontFamily:'Outfit' }}
+            tickLine={false} axisLine={false} />
+          <ReferenceLine y={30} stroke={ink(0.12)} strokeDasharray="3,3" />
+          <ReferenceLine y={70} stroke={gn(0.18)} strokeDasharray="3,3" />
           <Tooltip content={<CustomTooltip />} />
-          <Area type="monotone" dataKey="A" stroke="#ef4444" strokeWidth={1.5} fill="url(#mgA)" dot={false} />
-          <Area type="monotone" dataKey="B" stroke="#16a34a" strokeWidth={1.5} fill="url(#mgB)" dot={false} />
-          <Area type="monotone" dataKey="C" stroke="#3b82f6" strokeWidth={1.5} fill="url(#mgC)" dot={false} />
+          {Object.entries(ZONE_COLORS).map(([k,c]) => (
+            <Area key={k} type="monotone" dataKey={k}
+              stroke={c} strokeWidth={1.5} fill={`url(#mg${k})`} dot={false} />
+          ))}
         </AreaChart>
       </ResponsiveContainer>
     </div>
