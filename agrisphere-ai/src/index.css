@@ -1,0 +1,159 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-void: #030d06;
+  --bg-deep: #061209;
+  --bg-surface: #0a1f10;
+  --accent-primary: #22c55e;
+  --accent-soft: #86efac;
+  --accent-sage: #5a8c49;
+  --text-primary: #f0fdf4;
+  --text-muted: #4d7a5a;
+  --border-subtle: rgba(34, 197, 94, 0.12);
+  --glow-green: rgba(34, 197, 94, 0.35);
+  --glow-soft: rgba(134, 239, 172, 0.15);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Outfit', sans-serif;
+  background: var(--bg-void);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(34,197,94,0.3); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(34,197,94,0.5); }
+
+/* Glass card base */
+.glass {
+  background: rgba(10, 31, 16, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(34, 197, 94, 0.1);
+}
+
+.glass-strong {
+  background: rgba(6, 18, 9, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(34, 197, 94, 0.18);
+}
+
+/* Glow effects */
+.glow-green {
+  box-shadow: 0 0 20px rgba(34,197,94,0.25), 0 0 60px rgba(34,197,94,0.08);
+}
+
+.glow-critical {
+  box-shadow: 0 0 20px rgba(239,68,68,0.35), 0 0 60px rgba(239,68,68,0.1);
+}
+
+.glow-warning {
+  box-shadow: 0 0 20px rgba(245,158,11,0.35), 0 0 60px rgba(245,158,11,0.1);
+}
+
+/* Animated gradient border */
+.border-animated {
+  position: relative;
+}
+.border-animated::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(34,197,94,0.6), rgba(134,239,172,0.2), rgba(34,197,94,0.6));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: borderRotate 4s linear infinite;
+}
+@keyframes borderRotate {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Data shimmer */
+.data-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(34,197,94,0.1), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 2.5s linear infinite;
+}
+
+/* Noise overlay */
+.noise::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: 0.4;
+}
+
+/* Status indicators */
+.status-online { color: #4ade80; }
+.status-warning { color: #f59e0b; }
+.status-critical { color: #ef4444; }
+.status-offline { color: #6b7280; }
+
+/* Recharts overrides */
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: rgba(34, 197, 94, 0.08) !important;
+}
+.recharts-tooltip-wrapper .recharts-default-tooltip {
+  background: rgba(6, 18, 9, 0.95) !important;
+  border: 1px solid rgba(34, 197, 94, 0.3) !important;
+  border-radius: 8px !important;
+}
+
+/* Scan line animation */
+@keyframes scanLine {
+  0% { transform: translateY(-100%); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(100vh); opacity: 0; }
+}
+
+/* Pulse ring */
+@keyframes pulseRing {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+.pulse-ring::before,
+.pulse-ring::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  animation: pulseRing 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+.pulse-ring::after {
+  animation-delay: 1s;
+}
+
+/* Font utility */
+.font-display { font-family: 'Syne', sans-serif; }
+.font-data { font-family: 'DM Mono', monospace; }
